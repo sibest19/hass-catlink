@@ -30,9 +30,11 @@ Include:
 **Remove your email address, phone number, tokens, device IDs and MAC addresses from logs before
 you post them.**
 
-To request a new device, open a device support issue. The most helpful extra is the JSON the API
-returns for the device. You can get it with the `catlink.request_api` action (see the README), for
-example with `api: token/device/info` and `params: {deviceId: <id>}`. Redact it the same way.
+To request a new device or report how an untested one works, open a **Device support / test
+report** issue and attach the diagnostics file (**Settings → Devices & services → CatLink → ⋮ →
+Download diagnostics**). It holds the raw API data of every device, already redacted, and for
+unknown device types a fresh copy of the generic `token/device/info` response. For anything else,
+the `catlink.request_api` action (see the README) calls any API path.
 
 ## Development setup
 
@@ -183,6 +185,22 @@ Options in use: `class`, `unit`, `state_class`, `entity_category`, `enabled_defa
 6. Add the device to the support table and the entity tables in `README.md`, marked as not tested
    on hardware unless you tested it yourself.
 
+### From new device to stable
+
+A device nobody has tested goes out as a beta first:
+
+1. **Request.** A user opens a *Device support / test report* issue with the diagnostics file and
+   app screenshots. Unknown device types show a repair notice in Home Assistant that links to the
+   pre-filled form.
+2. **Beta.** Add the device as above, then publish a pre-release (see
+   [Release process](#release-process)), for example `3.1.0b1`. Mark the device "beta" in the README
+   support table and ask in the issue for testers.
+3. **Test reports.** Testers turn on pre-releases for CatLink in the Marketplace or HACS, install
+   the beta and answer in the issue with the same form: diagnostics, screenshots, and which
+   readings and controls work. Fix what they report in `3.1.0b2` and so on.
+4. **Stable.** When the readings match the app and the controls work, release `3.1.0` and update
+   the support table ("tested by users" or "verified on hardware").
+
 ## Pull requests
 
 Fork the repository, create a branch from `main`, and open a pull request against `main`.
@@ -208,6 +226,14 @@ For maintainers:
    The release workflow fails if they differ.
    HACS and the Marketplace install from releases, so the tag and the manifest version must match.
 4. Paste the changelog section into the release notes.
+
+**Betas.** Use a PEP 440 pre-release version such as `3.1.0b1` (or `3.1.0rc1`) in `manifest.json`
+and the tag `v3.1.0b1`, and tick **Set as a pre-release** on GitHub. Home Assistant accepts this
+format and sorts it before `3.1.0`. The release workflow fails if the pre-release box does not
+match the version: a version with a letter must be a pre-release, a plain `x.y.z` must not. The
+Marketplace and HACS offer a pre-release only to users who turned on pre-releases for CatLink, and
+only while it is newer than the latest stable release. A beta changelog can stay under
+**Unreleased**; move it under the version heading for the stable release.
 
 ## License
 
