@@ -1083,6 +1083,15 @@ class TestPureProDevice:
         assert device.name == "Cat Fountain"
         assert device.type == "PUREPRO"
 
+    def test_purepro_online_from_list_v2_boolean(
+        self, mock_coordinator, sample_purepro_data
+    ) -> None:
+        """Test sortedListV2's boolean onlineStatus marks the fountain online."""
+        device = PureProDevice(
+            {**sample_purepro_data, "onlineStatus": True}, mock_coordinator
+        )
+        assert device.online is True
+
     def test_purepro_modes(self, mock_coordinator, sample_purepro_data) -> None:
         """Test PureProDevice modes."""
         device = PureProDevice(sample_purepro_data, mock_coordinator)

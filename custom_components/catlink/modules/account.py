@@ -273,6 +273,10 @@ class Account:
         if not self.token:
             if not await self.async_login():
                 return None
+        # The current app lists devices with sortedListV2: data is a plain list.
+        rsp = await self.request("token/device/union/sortedListV2")
+        if rsp.get("returnCode") == 0 and isinstance(rsp.get("data"), list):
+            return rsp["data"]
         api = "token/device/union/list/sorted"
         rsp = await self.request(api, {"type": "NONE"})
         if rsp.get("returnCode") != 0:

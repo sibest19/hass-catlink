@@ -468,20 +468,27 @@ class TestAccountGetDevices:
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_get_devices_returns_list(self, account) -> None:
-        """Test get_devices returns device list from API."""
+        """Test get_devices returns the plain list sortedListV2 answers with."""
         with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = {
                 "returnCode": 0,
-                "data": {
-                    CONF_DEVICES: [
-                        {"id": "dev1", "deviceName": "Litter Box"},
-                    ]
-                },
+                "data": [{"id": "dev1", "deviceName": "Litter Box"}],
             }
             devices = await account.get_devices()
 
             assert devices == [{"id": "dev1", "deviceName": "Litter Box"}]
-            mock_request.assert_called_once()
+            mock_request.assert_called_once_with("token/device/union/sortedListV2")
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_get_devices_falls_back_to_old_list(self, account) -> None:
+        """Test get_devices uses union/list/sorted when sortedListV2 fails."""
+        with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"returnCode": 1000, "msg": "error"},
+                {"returnCode": 0, "data": {CONF_DEVICES: [{"id": "dev1"}]}},
+            ]
+            assert await account.get_devices() == [{"id": "dev1"}]
+            assert mock_request.call_args.args[0] == "token/device/union/list/sorted"
 
     @pytest.mark.parametrize(
         ("reply", "expected"),

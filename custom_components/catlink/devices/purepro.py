@@ -54,8 +54,8 @@ class PureProDevice(LogsMixin, Device):
         return (
             self.detail.get("online")
             or self.data.get("online")
-            or self.detail.get("onlineStatus") == "ONLINE"
-            or self.data.get("onlineStatus") == "ONLINE"
+            or self.detail.get("onlineStatus") in (True, "ONLINE")
+            or self.data.get("onlineStatus") in (True, "ONLINE")
             or False
         )
 
