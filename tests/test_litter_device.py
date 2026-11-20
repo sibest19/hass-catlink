@@ -107,6 +107,15 @@ class TestLitterDeviceLitterWeight:
         device.detail = {}
         assert device.litter_weight == 0.0
 
+    def test_litter_weight_null_is_unknown(
+        self, mock_coordinator, sample_device_data, caplog
+    ) -> None:
+        """Test a null catLitterWeight gives None without logging an error."""
+        device = LitterBox(sample_device_data, mock_coordinator)
+        device.detail = {"catLitterWeight": None}
+        assert device.litter_weight is None
+        assert "Got litter weight failed" not in caplog.text
+
 
 class TestLitterDeviceCleanTimes:
     """Tests for LitterDevice total_clean_time and manual_clean_time."""

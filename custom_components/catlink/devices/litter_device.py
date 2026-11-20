@@ -36,13 +36,15 @@ class LitterDevice(LogsMixin, Device):
         )
 
     @property
-    def litter_weight(self) -> float:
-        """Return the litter weight."""
+    def litter_weight(self) -> float | None:
+        """Return the litter weight, None when the device sends a null weight."""
         litter_weight = 0.0
         try:
             cat_litter_weight = self.detail.get(
                 "catLitterWeight", self.empty_litter_box_weight
             )
+            if cat_litter_weight is None:
+                return None
             litter_weight = cat_litter_weight - self.empty_litter_box_weight
             if litter_weight == 0.0:
                 _LOGGER.debug(
