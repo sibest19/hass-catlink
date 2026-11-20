@@ -6,8 +6,12 @@ import re
 import phonenumbers
 from phonenumbers import NumberParseException
 
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfMass
 from homeassistant.core import HomeAssistant
+from homeassistant.util.unit_conversion import MassConverter
+from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 
 from .const import (
     API_SERVERS,
@@ -84,6 +88,43 @@ def as_int(value: object, default: int | None = None) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+# The app's weightUnitTip values, which follow the unit set in the CatLink app.
+MASS_UNITS: dict[str, str] = {
+    "kg": UnitOfMass.KILOGRAMS,
+    "g": UnitOfMass.GRAMS,
+    "lb": UnitOfMass.POUNDS,
+    "oz": UnitOfMass.OUNCES,
+}
+
+
+def convert_mass(value: object, unit_tip: str | None, to_unit: str) -> float | None:
+    """Return a CatLink weight in to_unit, or None when the value or its unit is unknown."""
+    unit = MASS_UNITS.get(unit_tip)
+    if value is None or unit is None:
+        return None
+    return MassConverter.convert(float(value), unit, to_unit)
+
+
+def mass_options(hass: HomeAssistant, small: bool = False) -> dict:
+    """Return the options of a weight sensor reporting kg (g when small).
+
+    Home Assistant does not convert weights by unit system on its own, so the
+    suggested unit makes them follow it: kg / g for metric, lb / oz for US.
+    """
+    us = hass.config.units is US_CUSTOMARY_SYSTEM
+    if small:
+        unit, shown, precision = UnitOfMass.GRAMS, UnitOfMass.OUNCES, 0
+    else:
+        unit, shown, precision = UnitOfMass.KILOGRAMS, UnitOfMass.POUNDS, 1
+    return {
+        "class": SensorDeviceClass.WEIGHT,
+        "unit": unit,
+        "suggested_unit": shown if us else unit,
+        "precision": precision,
+        "state_class": SensorStateClass.MEASUREMENT,
+    }
 
 
 def format_api_error(rdt: dict) -> str:

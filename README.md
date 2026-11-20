@@ -248,7 +248,9 @@ Read-only. The app controls this model over a different channel that the integra
 | --- | --- |
 | Sensor | Health status, Weight, Age (years), Age (months), Gender (Male, Female, Neutered male, Neutered female), Breed, Birthday, Avatar, Litter box visits today, Urinations today, Defecations today, Drinks today, Food eaten today |
 
-Weight units follow the unit set in the CatLink app.
+Weights follow your Home Assistant unit system: kg and g with the metric system, lb and oz with the
+US customary system, whatever unit the CatLink app is set to. To use another unit for one entity,
+change it in the entity's settings.
 
 ### Action: `catlink.request_api`
 

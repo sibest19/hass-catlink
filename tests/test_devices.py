@@ -213,18 +213,19 @@ class TestDeviceRegistry:
         """Test each cat value is read from the field the app's cat page shows."""
         device = create_device(sample_cat_data, mock_coordinator)
         assert device.status == "Good"
-        assert device.weight == 15.0
+        # Converted from the app account's lb and oz, so the unit never depends on it.
+        assert device.weight == pytest.approx(6.804, abs=0.001)
         assert device.toilet_times == 4
         assert device.pee_times == 2
         assert device.poo_times == 1
         assert device.drink_times == 3
-        assert device.diet_intakes == 1.5
+        assert device.diet_intakes == pytest.approx(42.52, abs=0.01)
         assert device.birthday == date(2017, 4, 28)
         assert device.age_years == 9
         assert device.gender_label == "female"
         sensors = device.hass_sensor
-        assert sensors["weight"]["unit"] == "lb"
-        assert sensors["diet_intakes"]["unit"] == "oz"
+        assert sensors["weight"]["unit"] == "kg"
+        assert sensors["diet_intakes"]["unit"] == "g"
 
     def test_create_unknown_type_falls_back_to_base(self, mock_coordinator) -> None:
         """Test unknown device type uses base Device class."""

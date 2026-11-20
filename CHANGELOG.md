@@ -4,6 +4,15 @@ All notable changes to this project are listed here.
 
 ## Unreleased
 
+### Changed
+
+- **Weights follow your Home Assistant unit system** (kg and g for metric, lb and oz for US
+  customary) instead of the unit set in the CatLink app. Existing weight sensors switch on the next
+  start, unless you picked a unit for them yourself. Their long-term statistics may ask to be
+  adjusted once, because the stored unit changes.
+- The SCOOPER SE 2 Average weight now has a unit (it was a bare number in the app's unit), and
+  Average duration is in seconds.
+
 ## 3.0.0 - 2026-11-20
 
 First release from [sibest19/hass-catlink](https://github.com/sibest19/hass-catlink), the maintained

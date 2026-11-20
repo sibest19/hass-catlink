@@ -221,3 +221,28 @@ class TestAsInt:
         assert as_int("") is None
         assert as_int("abc", 0) == 0
         assert as_int([], 7) == 7
+
+
+def test_mass_options_follow_the_unit_system(hass) -> None:
+    """Test weights are shown in the unit system's unit: kg / g or lb / oz."""
+    from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
+
+    from custom_components.catlink.helpers import mass_options
+
+    hass.config.units = METRIC_SYSTEM
+    assert mass_options(hass)["suggested_unit"] == "kg"
+    assert mass_options(hass, small=True)["suggested_unit"] == "g"
+    hass.config.units = US_CUSTOMARY_SYSTEM
+    assert mass_options(hass)["suggested_unit"] == "lb"
+    assert mass_options(hass, small=True)["suggested_unit"] == "oz"
+    assert mass_options(hass)["unit"] == "kg"
+
+
+def test_convert_mass_unknown_unit_is_none() -> None:
+    """Test a weight without a known unit is unknown rather than mislabelled."""
+    from custom_components.catlink.helpers import convert_mass
+
+    assert convert_mass(1.0, "lb", "kg") == pytest.approx(0.4536, abs=0.0001)
+    assert convert_mass(1.0, None, "kg") is None
+    assert convert_mass(None, "lb", "kg") is None
+
