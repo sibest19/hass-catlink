@@ -1,11 +1,16 @@
 {
   "domain": "catlink",
   "name": "CatLink",
-  "version": "2.1.1-beta",
-  "documentation": "https://github.com/hasscc/catlink",
-  "issue_tracker": "https://github.com/hasscc/catlink/issues",
-  "requirements": ["phonenumbers>=8.13.0","pydantic>=2.0"],
-  "codeowners": ["@milosljubenovic"],
+  "codeowners": [
+    "@sibest19"
+  ],
   "config_flow": true,
-  "iot_class": "cloud_polling"
+  "documentation": "https://github.com/sibest19/hass-catlink",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/sibest19/hass-catlink/issues",
+  "requirements": [
+    "phonenumbers>=8.13.0",
+    "pydantic>=2.0"
+  ],
+  "version": "3.0.0"
 }
