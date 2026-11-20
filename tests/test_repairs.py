@@ -53,4 +53,6 @@ async def test_supported_type_clears_stale_issue(hass: HomeAssistant) -> None:
     )
     create_device({"id": "f1", "deviceType": "FEEDER"}, _coordinator(hass))
 
-    assert ir.async_get(hass).async_get_issue(DOMAIN, "unsupported_device_FEEDER") is None
+    assert (
+        ir.async_get(hass).async_get_issue(DOMAIN, "unsupported_device_FEEDER") is None
+    )
