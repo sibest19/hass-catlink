@@ -14,7 +14,6 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.config_entries import ConfigEntryState
-from homeassistant.const import CONF_DEVICES
 from homeassistant.core import HomeAssistant
 
 
@@ -63,7 +62,6 @@ async def test_async_setup(hass: HomeAssistant) -> None:
     assert result is True
     assert DOMAIN in hass.data
     assert CONF_ACCOUNTS in hass.data[DOMAIN]
-    assert CONF_DEVICES in hass.data[DOMAIN]
     assert "coordinators" in hass.data[DOMAIN]
     assert "add_entities" in hass.data[DOMAIN]
     assert "config" in hass.data[DOMAIN]
@@ -80,7 +78,6 @@ async def test_async_setup_entry(
     """Test async_setup_entry loads config entry and forwards platforms."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].setdefault(CONF_ACCOUNTS, {})
-    hass.data[DOMAIN].setdefault(CONF_DEVICES, {})
     hass.data[DOMAIN].setdefault("coordinators", {})
     hass.data[DOMAIN].setdefault("add_entities", {})
     hass.data[DOMAIN].setdefault("config", {})
@@ -106,10 +103,11 @@ async def test_async_unload_entry(
     mock_account,
     mock_coordinator,
 ) -> None:
-    """Test async_unload_entry cleans up hass.data."""
+    """Test async_unload_entry cleans up hass.data, whatever the account uid format."""
+    mock_account.return_value.uid = "email-cat@example.com"
+    mock_coordinator.return_value.account = mock_account.return_value
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN].setdefault(CONF_ACCOUNTS, {})
-    hass.data[DOMAIN].setdefault(CONF_DEVICES, {})
     hass.data[DOMAIN].setdefault("coordinators", {})
     hass.data[DOMAIN].setdefault("add_entities", {})
     hass.data[DOMAIN].setdefault("config", {})
@@ -124,7 +122,8 @@ async def test_async_unload_entry(
 
     assert result is True
     assert mock_config_entry.state is ConfigEntryState.NOT_LOADED
-    assert "86-13812345678" not in hass.data[DOMAIN][CONF_ACCOUNTS]
+    assert hass.data[DOMAIN][CONF_ACCOUNTS] == {}
+    assert hass.data[DOMAIN]["coordinators"] == {}
     assert mock_config_entry.entry_id not in hass.data[DOMAIN]["entry_coordinators"]
 
 
@@ -143,7 +142,6 @@ async def test_async_setup_entry_forwards_all_platforms(
     ) as mock_forward:
         hass.data.setdefault(DOMAIN, {})
         hass.data[DOMAIN].setdefault(CONF_ACCOUNTS, {})
-        hass.data[DOMAIN].setdefault(CONF_DEVICES, {})
         hass.data[DOMAIN].setdefault("coordinators", {})
         hass.data[DOMAIN].setdefault("add_entities", {})
         hass.data[DOMAIN].setdefault("config", {})
@@ -156,3 +154,37 @@ async def test_async_setup_entry_forwards_all_platforms(
         mock_forward.assert_called_once()
         call_args = mock_forward.call_args
         assert call_args[0][1] == SUPPORTED_DOMAINS
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_setup_removes_stale_entities(
+    hass: HomeAssistant,
+    mock_config_entry,
+    mock_account,
+    mock_coordinator,
+) -> None:
+    """Test setup drops registry entries of entities no device creates any more."""
+    from homeassistant.helpers import entity_registry as er
+
+    mock_config_entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    stale = registry.async_get_or_create(
+        "sensor", DOMAIN, "C08_AABB-occupied", config_entry=mock_config_entry
+    )
+    moved = registry.async_get_or_create(
+        "sensor", DOMAIN, "C08_AABB-online", config_entry=mock_config_entry
+    )
+    pro_ultra = registry.async_get_or_create(
+        "select", DOMAIN, "VISUAL_PRO_ULTRA_CCDD-mode", config_entry=mock_config_entry
+    )
+    kept = registry.async_get_or_create(
+        "sensor", DOMAIN, "C08_AABB-error", config_entry=mock_config_entry
+    )
+
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get(stale.entity_id) is None
+    assert registry.async_get(moved.entity_id) is None
+    assert registry.async_get(pro_ultra.entity_id) is None
+    assert registry.async_get(kept.entity_id) is not None

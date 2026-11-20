@@ -48,8 +48,8 @@ class FeederDevice(LogsMixin, Device):
 
     @property
     def error(self) -> str:
-        """Return the error of the device."""
-        return self.detail.get("error")
+        """Return the error banner text the app shows."""
+        return self._action_error or self.detail.get("currentErrorMessage")
 
     def error_attrs(self) -> dict:
         """Return the error attributes of the device."""
@@ -150,24 +150,18 @@ class FeederDevice(LogsMixin, Device):
         """Return the device sensors."""
         return {
             "state": {
-                "icon": "mdi:information",
                 "state_attrs": self.state_attrs,
             },
             "weight": {
-                "icon": "mdi:weight-gram",
-                "state": self.weight,
+                "translation_key": None,
                 "class": SensorDeviceClass.WEIGHT,
                 "unit": UnitOfMass.GRAMS,
                 "state_class": SensorStateClass.MEASUREMENT,
             },
             "error": {
-                "icon": "mdi:alert-circle",
-                "state": self.error,
                 "state_attrs": self.error_attrs,
             },
             "last_log": {
-                "icon": "mdi:message",
-                "state": self.last_log,
                 "state_attrs": self.last_log_attrs,
             },
         }
@@ -177,7 +171,6 @@ class FeederDevice(LogsMixin, Device):
         """Return the device buttons."""
         return {
             "feed": {
-                "icon": "mdi:food",
                 "async_press": self.food_out,
             }
         }
@@ -187,7 +180,6 @@ class FeederDevice(LogsMixin, Device):
         """Return the device numbers."""
         return {
             "portions": {
-                "icon": "mdi:counter",
                 "min": 1,
                 "max": 10,
                 "step": 1,

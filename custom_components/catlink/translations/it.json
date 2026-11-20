@@ -77,17 +77,8 @@
   },
   "entity": {
     "binary_sensor": {
-      "hair_cleaning": {
-        "name": "Pulizia peli"
-      },
-      "heating": {
-        "name": "Riscaldamento"
-      },
       "light_active": {
         "name": "Luce"
-      },
-      "uv_active": {
-        "name": "Sterilizzazione UV"
       }
     },
     "button": {
@@ -116,7 +107,9 @@
           "clean_pause": "Pulizia: pausa",
           "clean_cancel": "Pulizia: annulla",
           "pave_start": "Livella lettiera: avvia",
-          "pave_pause": "Livella lettiera: pausa"
+          "pave_pause": "Livella lettiera: pausa",
+          "empty": "Svuota",
+          "cancel": "Annulla"
         },
         "name": "Azione"
       },
@@ -185,26 +178,31 @@
       "breed": {
         "name": "Razza"
       },
+      "cleanings_today": {
+        "name": "Pulizie oggi"
+      },
       "deodorant_countdown": {
         "name": "Giorni residui deodorante"
       },
       "diet_intakes": {
-        "name": "Cibo consumato"
-      },
-      "diet_times": {
-        "name": "Pasti"
+        "name": "Cibo consumato oggi"
       },
       "drink_times": {
-        "name": "Bevute"
+        "name": "Bevute oggi"
       },
       "error": {
         "name": "Errore"
       },
       "filter_life": {
-        "name": "Durata filtro"
+        "name": "Giorni residui filtro"
       },
       "garbage_tobe_status": {
-        "name": "Stato contenitore rifiuti"
+        "name": "Stato contenitore rifiuti",
+        "state": {
+          "normal": "Normale",
+          "almost_full": "Quasi pieno",
+          "full": "Pieno"
+        }
       },
       "gender_label": {
         "state": {
@@ -214,9 +212,6 @@
           "neutered_female": "Femmina sterilizzata"
         },
         "name": "Sesso"
-      },
-      "humidity": {
-        "name": "Umidità"
       },
       "knob_status": {
         "name": "Posizione manopola"
@@ -228,7 +223,7 @@
         "name": "Ultima sincronizzazione"
       },
       "litter_remaining_days": {
-        "name": "Lettiera rimanente"
+        "name": "Giorni residui lettiera"
       },
       "litter_weight": {
         "name": "Peso lettiera"
@@ -239,38 +234,35 @@
       "notice_config_count": {
         "name": "Notifiche"
       },
-      "occupied": {
-        "name": "Occupato"
-      },
-      "online": {
-        "name": "Online"
-      },
       "pee_times": {
-        "name": "Minzioni"
+        "name": "Minzioni oggi"
       },
       "pet_stats_count": {
         "name": "Animali monitorati"
       },
       "poo_times": {
-        "name": "Defecazioni"
-      },
-      "sport_active_duration": {
-        "name": "Tempo di attività"
+        "name": "Defecazioni oggi"
       },
       "state": {
         "state": {
           "idle": "Inattivo",
           "running": "In funzione",
           "need_reset": "Richiede il ripristino",
-          "unknown": "Sconosciuto"
+          "cleaning": "Pulizia",
+          "leveling": "Livellamento lettiera",
+          "emptying": "Svuotamento",
+          "paused": "In pausa",
+          "cancelling": "Annullamento",
+          "resetting": "Ripristino",
+          "changing_bag": "Cambio sacchetto",
+          "flowing": "Flusso continuo",
+          "eco": "Eco",
+          "smart": "Intelligente"
         },
         "name": "Stato"
       },
       "stats_duration_avg": {
         "name": "Durata media"
-      },
-      "stats_times": {
-        "name": "Visite"
       },
       "stats_weight_avg": {
         "name": "Peso medio"
@@ -278,23 +270,17 @@
       "status": {
         "name": "Stato di salute"
       },
-      "temperature": {
-        "name": "Temperatura"
-      },
       "toilet_times": {
-        "name": "Visite alla lettiera"
-      },
-      "toilet_weight_avg": {
-        "name": "Peso medio per visita"
+        "name": "Visite alla lettiera oggi"
       },
       "total_clean_time": {
         "name": "Pulizie totali"
       },
+      "visits_today": {
+        "name": "Visite alla lettiera oggi"
+      },
       "water_level": {
         "name": "Livello dell'acqua"
-      },
-      "weight": {
-        "name": "Peso"
       },
       "wifi_rssi": {
         "name": "Segnale Wi-Fi"

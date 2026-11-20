@@ -1,11 +1,11 @@
 """Scooper device module for CatLink integration."""
 
-from collections import deque
 import datetime
+from collections import deque
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import PERCENTAGE, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, UnitOfMass, UnitOfTemperature, UnitOfTime
 
 from ..const import _LOGGER
 from ..models.additional_cfg import AdditionalDeviceConfig
@@ -84,50 +84,45 @@ class ScooperDevice(LitterDevice):
         """Return the hass sensor of the device."""
         return {
             "state": {
-                "icon": "mdi:information",
+                "class": SensorDeviceClass.ENUM,
+                "options": ["idle", "running", "need_reset"],
                 "state_attrs": self.state_attrs,
             },
             "last_log": {
-                "icon": "mdi:message",
                 "state_attrs": self.last_log_attrs,
             },
             "litter_weight": {
-                "icon": "mdi:weight",
+                "class": SensorDeviceClass.WEIGHT,
+                "unit": UnitOfMass.KILOGRAMS,
+                "state_class": SensorStateClass.MEASUREMENT,
             },
             "litter_remaining_days": {
-                "icon": "mdi:calendar",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "total_clean_time": {
-                "icon": "mdi:timer",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "manual_clean_time": {
-                "icon": "mdi:timer",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "deodorant_countdown": {
-                "icon": "mdi:timer",
-            },
-            "occupied": {
-                "icon": "mdi:cat",
-            },
-            "online": {
-                "icon": "mdi:cloud",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "temperature": {
-                "icon": "mdi:temperature-celsius",
-                "state": self.temperature,
+                "translation_key": None,
                 "class": SensorDeviceClass.TEMPERATURE,
                 "unit": UnitOfTemperature.CELSIUS,
                 "state_class": SensorStateClass.MEASUREMENT,
             },
             "humidity": {
-                "icon": "mdi:water-percent",
-                "state": self.humidity,
+                "translation_key": None,
                 "class": SensorDeviceClass.HUMIDITY,
                 "unit": PERCENTAGE,
                 "state_class": SensorStateClass.MEASUREMENT,
             },
             "error": {
-                "icon": "mdi:alert-circle",
                 "state_attrs": self.error_attrs,
             },
         }

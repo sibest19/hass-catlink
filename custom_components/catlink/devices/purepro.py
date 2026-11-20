@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import EntityCategory, UnitOfTemperature, UnitOfTime
+
 from ..const import _LOGGER
 from ..helpers import format_api_error
 from ..models.additional_cfg import AdditionalDeviceConfig
@@ -56,41 +60,52 @@ class PureProDevice(LogsMixin, Device):
         )
 
     @property
-    def water_level(self) -> int | None:
-        """Return the water level of the fountain."""
-        return self.detail.get("waterLevelNum")
+    def mode(self) -> str | None:
+        """Return the current run mode."""
+        return self.modes.get(self.detail.get("runMode"))
+
+    def mode_attrs(self) -> dict:
+        """Return the mode attributes."""
+        return {"run_mode": self.detail.get("runMode")}
+
+    @property
+    def water_level(self) -> str | None:
+        """Return the water level text the app shows."""
+        return self.detail.get("waterLevelStrDescription")
 
     @property
     def filter_life(self) -> int | None:
-        """Return the filter life percentage."""
+        """Return the filter days left."""
         return self.detail.get("filterElementTimeCountdown")
 
     @property
     def temperature(self) -> float | None:
-        """Return the water temperature."""
-        return self.detail.get("waterTemperature")
+        """Return the heater temperature, shown by the app only with a heater bound."""
+        value = self.detail.get("temperatureOfHeater")
+        try:
+            return float(value) if value else None
+        except ValueError:
+            return None
 
     @property
-    def state(self) -> str:
-        """Return the state of the device."""
-        mode = self.detail.get("runMode")
-        if mode in self.modes:
-            return self.modes[mode]
-        return self.detail.get("workStatus", "unknown")
+    def light_active(self) -> bool:
+        """Return whether the light is on."""
+        return self.detail.get("pureLightStatus") == "OPEN"
+
+    @property
+    def state(self) -> str | None:
+        """Return the run mode, the state the app's fountain page shows."""
+        return self.mode
 
     def state_attrs(self) -> dict:
         """Return the state attributes of the device."""
         return {
-            **self.detail,
-            "work_status": self.detail.get("workStatus"),
             "run_mode": self.detail.get("runMode"),
             "water_level": self.water_level,
+            "water_level_num": self.detail.get("waterLevelNum"),
             "filter_life": self.filter_life,
             "temperature": self.temperature,
-            "uv_active": self.detail.get("ultravioletRaysSwitch") == "OPEN",
-            "heating": self.detail.get("waterHeatSwitch") == "OPEN",
-            "light_active": self.detail.get("pureLightStatus") == "OPEN",
-            "hair_cleaning": self.detail.get("fluffyHairStatus") != "STOP",
+            "light_active": self.light_active,
         }
 
     @property
@@ -109,28 +124,23 @@ class PureProDevice(LogsMixin, Device):
         """Return the device sensors."""
         return {
             "state": {
-                "icon": "mdi:information",
+                "class": SensorDeviceClass.ENUM,
+                "options": list(self.modes.values()),
                 "state_attrs": self.state_attrs,
             },
             "last_log": {
-                "icon": "mdi:message",
                 "state_attrs": self.last_log_attrs,
             },
-            "online": {
-                "icon": "mdi:cloud",
-                "state": "Online" if self.online else "Offline",
-            },
-            "water_level": {
-                "icon": "mdi:water-percent",
-                "unit": "%",
-            },
+            "water_level": {},
             "filter_life": {
-                "icon": "mdi:filter-outline",
-                "unit": "%",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "temperature": {
-                "icon": "mdi:thermometer",
-                "unit": "°C",
+                "translation_key": None,
+                "class": SensorDeviceClass.TEMPERATURE,
+                "unit": UnitOfTemperature.CELSIUS,
+                "state_class": SensorStateClass.MEASUREMENT,
             },
         }
 
@@ -138,22 +148,12 @@ class PureProDevice(LogsMixin, Device):
     def hass_binary_sensor(self) -> dict:
         """Return the device binary sensors."""
         return {
-            "uv_active": {
-                "icon": "mdi:lightbulb-cfl-spiral",
-                "state": self.detail.get("ultravioletRaysSwitch") == "OPEN",
+            "online": {
+                "translation_key": None,
+                "class": BinarySensorDeviceClass.CONNECTIVITY,
+                "entity_category": EntityCategory.DIAGNOSTIC,
             },
-            "heating": {
-                "icon": "mdi:water-boiler",
-                "state": self.detail.get("waterHeatSwitch") == "OPEN",
-            },
-            "light_active": {
-                "icon": "mdi:palette",
-                "state": self.detail.get("pureLightStatus") == "OPEN",
-            },
-            "hair_cleaning": {
-                "icon": "mdi:spray",
-                "state": self.detail.get("fluffyHairStatus") != "STOP",
-            },
+            "light_active": {},
         }
 
     @property
@@ -161,7 +161,6 @@ class PureProDevice(LogsMixin, Device):
         """Return the device selects."""
         return {
             "mode": {
-                "icon": "mdi:menu",
                 "options": list(self.modes.values()),
                 "state_attrs": self.mode_attrs,
                 "async_select": self.select_mode,

@@ -9,4 +9,3 @@ class AdditionalDeviceConfig(BaseModel):
     name: str = ""
     mac: str = ""
     empty_weight: float = 0.0
-    max_samples_litter: int = 24

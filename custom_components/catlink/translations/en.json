@@ -77,17 +77,8 @@
   },
   "entity": {
     "binary_sensor": {
-      "hair_cleaning": {
-        "name": "Hair cleaning"
-      },
-      "heating": {
-        "name": "Heating"
-      },
       "light_active": {
         "name": "Light"
-      },
-      "uv_active": {
-        "name": "UV sterilisation"
       }
     },
     "button": {
@@ -116,7 +107,9 @@
           "clean_pause": "Clean: pause",
           "clean_cancel": "Clean: cancel",
           "pave_start": "Level litter: start",
-          "pave_pause": "Level litter: pause"
+          "pave_pause": "Level litter: pause",
+          "empty": "Empty",
+          "cancel": "Cancel"
         },
         "name": "Action"
       },
@@ -185,26 +178,31 @@
       "breed": {
         "name": "Breed"
       },
+      "cleanings_today": {
+        "name": "Cleanings today"
+      },
       "deodorant_countdown": {
-        "name": "Deodorant countdown"
+        "name": "Deodorant days left"
       },
       "diet_intakes": {
-        "name": "Food eaten"
-      },
-      "diet_times": {
-        "name": "Meals"
+        "name": "Food eaten today"
       },
       "drink_times": {
-        "name": "Drinks"
+        "name": "Drinks today"
       },
       "error": {
         "name": "Error"
       },
       "filter_life": {
-        "name": "Filter life"
+        "name": "Filter days left"
       },
       "garbage_tobe_status": {
-        "name": "Waste bin status"
+        "name": "Waste bin status",
+        "state": {
+          "normal": "Normal",
+          "almost_full": "Almost full",
+          "full": "Full"
+        }
       },
       "gender_label": {
         "state": {
@@ -214,9 +212,6 @@
           "neutered_female": "Neutered female"
         },
         "name": "Gender"
-      },
-      "humidity": {
-        "name": "Humidity"
       },
       "knob_status": {
         "name": "Knob position"
@@ -228,7 +223,7 @@
         "name": "Last sync"
       },
       "litter_remaining_days": {
-        "name": "Litter remaining"
+        "name": "Litter days left"
       },
       "litter_weight": {
         "name": "Litter weight"
@@ -239,38 +234,35 @@
       "notice_config_count": {
         "name": "Notifications"
       },
-      "occupied": {
-        "name": "Occupied"
-      },
-      "online": {
-        "name": "Online"
-      },
       "pee_times": {
-        "name": "Urinations"
+        "name": "Urinations today"
       },
       "pet_stats_count": {
         "name": "Tracked pets"
       },
       "poo_times": {
-        "name": "Defecations"
-      },
-      "sport_active_duration": {
-        "name": "Active time"
+        "name": "Defecations today"
       },
       "state": {
         "state": {
           "idle": "Idle",
           "running": "Running",
           "need_reset": "Needs reset",
-          "unknown": "Unknown"
+          "cleaning": "Cleaning",
+          "leveling": "Leveling litter",
+          "emptying": "Emptying",
+          "paused": "Paused",
+          "cancelling": "Cancelling",
+          "resetting": "Resetting",
+          "changing_bag": "Changing bag",
+          "flowing": "Flowing",
+          "eco": "Eco",
+          "smart": "Smart"
         },
         "name": "State"
       },
       "stats_duration_avg": {
         "name": "Average duration"
-      },
-      "stats_times": {
-        "name": "Visits"
       },
       "stats_weight_avg": {
         "name": "Average weight"
@@ -278,23 +270,17 @@
       "status": {
         "name": "Health status"
       },
-      "temperature": {
-        "name": "Temperature"
-      },
       "toilet_times": {
-        "name": "Litter box visits"
-      },
-      "toilet_weight_avg": {
-        "name": "Average visit weight"
+        "name": "Litter box visits today"
       },
       "total_clean_time": {
         "name": "Total cleanings"
       },
+      "visits_today": {
+        "name": "Litter box visits today"
+      },
       "water_level": {
         "name": "Water level"
-      },
-      "weight": {
-        "name": "Weight"
       },
       "wifi_rssi": {
         "name": "Wi-Fi signal"

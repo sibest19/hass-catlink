@@ -258,6 +258,51 @@ class TestAccountRequest:
         assert CONF_TOKEN in params
         assert params[CONF_TOKEN] == "existing-token"
 
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_request_sends_booleans_lowercase(self, account) -> None:
+        """Test booleans go out as "true"/"false", like the official app sends."""
+        call_params = {}
+
+        async def mock_request(method, url, **kwargs):
+            call_params.update(kwargs)
+            resp = MagicMock()
+            resp.json = AsyncMock(return_value={})
+            return resp
+
+        account.http.request = mock_request
+        await account.request("api", {"on": True, "off": False}, "POST")
+
+        assert call_params["data"]["on"] == "true"
+        assert call_params["data"]["off"] == "false"
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_request_relogs_in_and_retries_on_expired_token(
+        self, account
+    ) -> None:
+        """Test a 1002 response re-logs in and retries once with a fresh signature."""
+        calls = []
+
+        async def mock_request(method, url, **kwargs):
+            calls.append(kwargs)
+            resp = MagicMock()
+            code = 1002 if len(calls) == 1 else 0
+            resp.json = AsyncMock(return_value={"returnCode": code})
+            return resp
+
+        async def mock_login():
+            account._config[CONF_TOKEN] = "new-token"
+            return True
+
+        account.http.request = mock_request
+        with patch.object(account, "async_login", side_effect=mock_login):
+            result = await account.request("api", {"key": "val"}, "POST_GET")
+
+        assert result == {"returnCode": 0}
+        retry = calls[1]["params"]
+        assert retry[CONF_TOKEN] == "new-token"
+        unsigned = {k: v for k, v in retry.items() if k != "sign"}
+        assert retry["sign"] == account.params_sign(unsigned)
+
 
 class TestAccountAsyncLogin:
     """Tests for Account async_login."""
@@ -278,6 +323,22 @@ class TestAccountAsyncLogin:
                 assert result is True
                 assert account.token == "new-token"
                 mock_check.assert_called_once_with(True)
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_login_answered_with_1002_does_not_recurse(self, account) -> None:
+        """Test a login answered with 1002 fails once instead of re-logging in."""
+        calls = []
+
+        async def mock_request(method, url, **kwargs):
+            calls.append(url)
+            resp = MagicMock()
+            resp.json = AsyncMock(return_value={"returnCode": 1002})
+            return resp
+
+        account.http.request = mock_request
+
+        assert await account.async_login() is False
+        assert len(calls) == 1
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_login_fails_no_token(self, account) -> None:
@@ -441,18 +502,27 @@ class TestAccountGetCatSummarySimple:
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_get_cat_summary_simple_returns_data(self, account) -> None:
-        """Test get_cat_summary_simple returns summary data."""
+        """Test get_cat_summary_simple calls the app's chart endpoint."""
         with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = {
                 "returnCode": 0,
-                "data": {"statusDescription": "Good"},
+                "data": {"petSummarySimpleVO": {"drinkInfo": {"drinkCount": 2}}},
             }
             summary = await account.get_cat_summary_simple(
                 "169004", "2026-02-06", "Europe/Belgrade"
             )
 
-            assert summary == {"statusDescription": "Good"}
-            mock_request.assert_called_once()
+            assert summary == {"drinkInfo": {"drinkCount": 2}}
+            mock_request.assert_called_once_with(
+                "token/pet/data/chart/summarySimple",
+                {
+                    "petId": "169004",
+                    "date": "2026-02-06",
+                    "lastRequestTime": "",
+                    "timezoneId": "Europe/Belgrade",
+                },
+            )
+
 
 class TestAccountAsyncCheckAuth:
     """Tests for Account async_check_auth."""

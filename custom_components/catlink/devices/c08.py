@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import time
 from functools import partial
 from typing import TYPE_CHECKING
 
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import EntityCategory, UnitOfMass, UnitOfTime
+from homeassistant.util import dt as dt_util
+
 from custom_components.catlink.const import _LOGGER
 from custom_components.catlink.devices.litter_device import LitterDevice
-from custom_components.catlink.helpers import format_api_error
+from custom_components.catlink.helpers import as_int, format_api_error
 from custom_components.catlink.models.additional_cfg import AdditionalDeviceConfig
 from custom_components.catlink.models.api.device import C08DeviceInfo
 from custom_components.catlink.models.api.parse import parse_response
@@ -23,6 +26,7 @@ API_LITTERBOX_CHANGE_MODE = "token/litterbox/changeMode"
 API_LITTERBOX_PET_WEIGHT_AUTO_UPDATE = "token/litterbox/pet/weight/autoUpdate"
 API_LITTERBOX_CAT_LITTER_SETTING = "token/litterbox/catLitterSetting"
 API_LITTERBOX_DEEP_CLEAN_AUTO_BURIAL = "token/litterbox/deepClean/autoBurial"
+API_LITTERBOX_QUIET_MODE = "token/litterbox/quietMode"
 API_LITTERBOX_DEEP_CLEAN_CONTINUOUS_CLEANING = (
     "token/litterbox/deepClean/continuousCleaning"
 )
@@ -35,16 +39,13 @@ API_LITTERBOX_NOTICE_CONFIG_SET = "token/litterbox/noticeConfig/set"
 API_LITTERBOX_NOTICE_CONFIG_LIST_C08 = "token/litterbox/noticeConfig/list/c08"
 API_LITTERBOX_STATS_DATA_COMPARE_V2 = "token/litterbox/stats/data/compare/v2"
 API_LITTERBOX_STATS_CATS = "token/litterbox/stats/cats"
-API_LITTERBOX_LINKED_PETS = "token/litterbox/linkedPets"
-API_LITTERBOX_CAT_LIST_SELECTABLE = "token/litterbox/cat/listSelectable"
 API_LITTERBOX_C08_WIFI_INFO = "token/litterbox/wifi/info"
-API_LITTERBOX_ABOUT_DEVICE = "token/litterbox/aboutDevice"
 
+API_LITTERBOX_TODAY_CLEAN_TIMES = "token/litterbox/todayCleanTimes"
+API_LITTERBOX_PET_TODAY_COUNTS = "token/litterbox/petTodayCounts"
 API_LITTERBOX_LOGS = "token/litterbox/stats/log/top5"
 API_LITTERBOX_LOGS_RESPONSE_KEY = "scooperLogTop5"
 
-DEFAULT_QUIET_START = time(22, 0)
-DEFAULT_QUIET_END = time(7, 0)
 
 NOTICE_ITEMS: dict[str, tuple[str, str]] = {
     "cat_came": ("LITTERBOX_599_CAT_CAME", "Cat came"),
@@ -72,13 +73,11 @@ class C08Device(LitterDevice):
         super().__init__(dat, coordinator, additional_config)
         self._device_stats: dict | None = None
         self._pet_stats: list | None = None
-        self._linked_pets: list | None = None
-        self._selectable_pets: list | None = None
         self._wifi_info: dict | None = None
         self._notice_configs: list | None = None
-        self._about_device: dict | None = None
         self._notice_config_map: dict[str, bool] = {}
-        self._last_action: str | None = None
+        self._today_clean_times: int | None = None
+        self._today_toilet_count: int | None = None
 
     def __getattr__(self, name: str):
         """Return notice switch state for dynamic notice attributes."""
@@ -101,9 +100,31 @@ class C08Device(LitterDevice):
         }
 
     @property
+    def state(self) -> str:
+        """Return the run state the app shows, from finalStatus."""
+        final = self.detail.get("finalStatus") or ""
+        if final == "CLEAN_RUN":
+            return "cleaning"
+        if final == "PAVE_RUN":
+            return "leveling"
+        if final == "EMPTY_RUN":
+            return "emptying"
+        if final.endswith("_PAUSE"):
+            return "paused"
+        if final.endswith("_CANCEL"):
+            return "cancelling"
+        return "idle"
+
+    @property
     def action(self) -> str | None:
-        """Return the last action."""
-        return self._last_action
+        """Return the running action, from finalStatus as the app shows it."""
+        return {
+            "CLEAN_RUN": "clean_start",
+            "CLEAN_PAUSE": "clean_pause",
+            "CLEAN_CANCEL": "clean_cancel",
+            "PAVE_RUN": "pave_start",
+            "PAVE_PAUSE": "pave_pause",
+        }.get(self.detail.get("finalStatus"))
 
     @property
     def litter_types(self) -> dict:
@@ -196,70 +217,70 @@ class C08Device(LitterDevice):
         """Return the device error."""
         if self._action_error:
             return self._action_error
-        return self.detail.get("currentMessage") or "Normal Operation"
+        # The app's red banner, then its warning banner.
+        errors = self.detail.get("deviceErrorList") or []
+        warn = self.detail.get("deviceWarn") or {}
+        return (
+            (errors[0].get("errDesc") if errors else None)
+            or warn.get("errDesc")
+            or "Normal Operation"
+        )
 
     @property
     def hass_sensor(self) -> dict:
         """Return the device sensors."""
         return {
             "state": {
-                "icon": "mdi:information",
+                "class": SensorDeviceClass.ENUM,
+                "options": ["idle", "cleaning", "leveling", "emptying", "paused", "cancelling"],
                 "state_attrs": self.state_attrs,
             },
             "error": {
-                "icon": "mdi:alert-circle",
                 "state_attrs": self.error_attrs,
             },
             "last_log": {
-                "icon": "mdi:message",
                 "state_attrs": self.last_log_attrs,
             },
             "litter_weight": {
-                "icon": "mdi:weight",
-                "unit": "kg",
+                "class": SensorDeviceClass.WEIGHT,
+                "unit": UnitOfMass.KILOGRAMS,
+                "state_class": SensorStateClass.MEASUREMENT,
             },
             "litter_remaining_days": {
-                "icon": "mdi:calendar",
-                "unit": "days",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "total_clean_time": {
-                "icon": "mdi:history",
-                "unit": "times",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
+                "translation_key": "cleanings_today",
             },
             "manual_clean_time": {
-                "icon": "mdi:history",
-                "unit": "times",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "deodorant_countdown": {
-                "icon": "mdi:timer",
-                "unit": "days",
-            },
-            "occupied": {
-                "icon": "mdi:cat",
-            },
-            "online": {
-                "icon": "mdi:wifi",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "wifi_rssi": {
-                "icon": "mdi:wifi",
+                "entity_category": EntityCategory.DIAGNOSTIC,
             },
             "wifi_ssid": {
-                "icon": "mdi:wifi",
+                "entity_category": EntityCategory.DIAGNOSTIC,
+                "enabled_default": False,
             },
             "stats_times": {
-                "icon": "mdi:counter",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
+                "translation_key": "visits_today",
             },
-            "stats_weight_avg": {
-                "icon": "mdi:scale",
-            },
-            "stats_duration_avg": {
-                "icon": "mdi:timer",
-            },
+            "stats_weight_avg": {},
+            "stats_duration_avg": {},
             "notice_config_count": {
-                "icon": "mdi:bell",
+                "entity_category": EntityCategory.DIAGNOSTIC,
+                "enabled_default": False,
             },
             "pet_stats_count": {
-                "icon": "mdi:paw",
+                "entity_category": EntityCategory.DIAGNOSTIC,
+                "enabled_default": False,
             },
         }
 
@@ -268,24 +289,23 @@ class C08Device(LitterDevice):
         """Return the device selects."""
         return {
             "mode": {
-                "icon": "mdi:menu",
+                "entity_category": EntityCategory.CONFIG,
                 "options": list(self.modes.values()),
                 "state_attrs": self.mode_attrs,
                 "async_select": self.select_mode,
             },
             "action": {
-                "icon": "mdi:play-box",
                 "options": list(self._action_options()),
                 "async_select": self.select_action,
                 "delay_update": 5,
             },
             "litter_type": {
-                "icon": "mdi:shaker-outline",
+                "entity_category": EntityCategory.CONFIG,
                 "options": list(self.litter_types.values()),
                 "async_select": self.select_litter_type,
             },
             "safe_time": {
-                "icon": "mdi:timer",
+                "entity_category": EntityCategory.CONFIG,
                 "options": list(self.safe_time_options.values()),
                 "async_select": self.select_safe_time,
             },
@@ -296,52 +316,48 @@ class C08Device(LitterDevice):
         """Return the device switches."""
         switches = {
             "quiet_mode": {
-                "icon": "mdi:volume-off",
                 "async_turn_on": partial(self.async_set_quiet_mode, True),
                 "async_turn_off": partial(self.async_set_quiet_mode, False),
             },
             "auto_burial": {
-                "icon": "mdi:shovel",
                 "async_turn_on": partial(self.async_set_auto_burial, True),
                 "async_turn_off": partial(self.async_set_auto_burial, False),
             },
             "continuous_cleaning": {
-                "icon": "mdi:replay",
                 "async_turn_on": partial(self.async_set_continuous_cleaning, True),
                 "async_turn_off": partial(self.async_set_continuous_cleaning, False),
             },
             "child_lock": {
-                "icon": "mdi:lock",
                 "async_turn_on": partial(self.async_set_child_lock, True),
                 "async_turn_off": partial(self.async_set_child_lock, False),
             },
             "indicator_light": {
-                "icon": "mdi:lightbulb",
                 "async_turn_on": partial(self.async_set_indicator_light, True),
                 "async_turn_off": partial(self.async_set_indicator_light, False),
             },
             "keypad_tone": {
-                "icon": "mdi:volume-high",
                 "async_turn_on": partial(self.async_set_keypad_tone, True),
                 "async_turn_off": partial(self.async_set_keypad_tone, False),
             },
             "auto_pet_weight_update": {
-                "icon": "mdi:scale",
                 "async_turn_on": partial(self.async_set_auto_pet_weight_update, True),
                 "async_turn_off": partial(self.async_set_auto_pet_weight_update, False),
             },
             "kitty_model": {
-                "icon": "mdi:cat",
                 "async_turn_on": partial(self.async_set_kitty_model, True),
                 "async_turn_off": partial(self.async_set_kitty_model, False),
             },
         }
         for slug, (item_code, _label) in NOTICE_ITEMS.items():
             switches[f"notice_{slug}"] = {
-                "icon": "mdi:bell",
                 "async_turn_on": partial(self.async_set_notice, item_code, True),
                 "async_turn_off": partial(self.async_set_notice, item_code, False),
+                # The app has no row for these two.
+                "enabled_default": slug
+                not in ("litter_not_enough", "sandbox_not_enough"),
             }
+        for switch in switches.values():
+            switch["entity_category"] = EntityCategory.CONFIG
         return switches
 
     def state_attrs(self) -> dict:
@@ -362,9 +378,6 @@ class C08Device(LitterDevice):
             "notice_configs": self._notice_configs or [],
             "device_stats": self._device_stats or {},
             "pet_stats": self._pet_stats or [],
-            "about_device": self._about_device or {},
-            "linked_pets": self._linked_pets or [],
-            "selectable_pets": self._selectable_pets or [],
         }
 
     def error_attrs(self) -> dict:
@@ -386,9 +399,14 @@ class C08Device(LitterDevice):
         return self._wifi_info.get("wifiName") or self._wifi_info.get("wifi_name")
 
     @property
+    def total_clean_time(self) -> int | None:
+        """Return today's clean count, the app's "Clean" chip."""
+        return self._today_clean_times
+
+    @property
     def stats_times(self) -> int | None:
-        """Return the stats times."""
-        return self._device_stats.get("times") if self._device_stats else None
+        """Return today's toilet visits of all cats, the app's "Toilet" chip."""
+        return self._today_toilet_count
 
     @property
     def stats_weight_avg(self) -> float | None:
@@ -478,10 +496,7 @@ class C08Device(LitterDevice):
             },
             "POST",
         )
-        result = await self._handle_action_result(rdt, "Select action")
-        if result:
-            self._last_action = action
-        return result
+        return await self._handle_action_result(rdt, "Select action")
 
     async def select_litter_type(self, litter_type, **kwargs) -> bool:
         """Select the litter type."""
@@ -525,17 +540,7 @@ class C08Device(LitterDevice):
 
     async def async_set_quiet_mode(self, enable: bool, **kwargs) -> bool:
         """Enable or disable quiet mode."""
-        start_time, end_time = self._quiet_time_range()
-        rdt = await self.account.request(
-            API_LITTERBOX_DEEP_CLEAN_AUTO_BURIAL,
-            {
-                "enable": enable,
-                "times": f"{start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}",
-                "deviceId": self.id,
-            },
-            "POST",
-        )
-        return await self._handle_action_result(rdt, "Quiet mode")
+        return await self._issue_toggle(API_LITTERBOX_QUIET_MODE, enable, "Quiet mode")
 
     async def async_set_auto_burial(self, enable: bool, **kwargs) -> bool:
         """Enable or disable automatic burial."""
@@ -553,7 +558,7 @@ class C08Device(LitterDevice):
 
     async def async_set_child_lock(self, enable: bool, **kwargs) -> bool:
         """Enable or disable child lock."""
-        status = "LOCKED" if enable else "UNLOCKED"
+        status = "01" if enable else "00"
         rdt = await self.account.request(
             API_LITTERBOX_KEY_LOCK,
             {"lockStatus": status, "deviceId": self.id},
@@ -573,7 +578,7 @@ class C08Device(LitterDevice):
 
     async def async_set_keypad_tone(self, enable: bool, **kwargs) -> bool:
         """Enable or disable keypad tone."""
-        panel_tone = "ENABLED" if enable else "DISABLED"
+        panel_tone = "01" if enable else "00"
         rdt = await self.account.request(
             API_LITTERBOX_KEYPAD_TONE,
             {"panelTone": panel_tone, "kind": "00", "deviceId": self.id},
@@ -598,38 +603,44 @@ class C08Device(LitterDevice):
 
     async def async_refresh_c08_extras(self) -> None:
         """Refresh supplemental C08 data."""
+        # "Today" in the device's own time zone, as the app asks for it.
+        tz_id = self.detail.get("timezoneId")
+        tz = dt_util.get_time_zone(tz_id) if tz_id else None
+        today = dt_util.now(tz).date().isoformat()
         requests = [
             self.account.request(
                 API_LITTERBOX_STATS_DATA_COMPARE_V2, {"deviceId": self.id}
             ),
             self.account.request(API_LITTERBOX_STATS_CATS, {"deviceId": self.id}),
-            self.account.request(API_LITTERBOX_LINKED_PETS, {"deviceId": self.id}),
-            self.account.request(
-                API_LITTERBOX_CAT_LIST_SELECTABLE, {"deviceId": self.id}
-            ),
             self.account.request(API_LITTERBOX_C08_WIFI_INFO, {"deviceId": self.id}),
             self.account.request(
                 API_LITTERBOX_NOTICE_CONFIG_LIST_C08, {"deviceId": self.id}
             ),
-            self.account.request(API_LITTERBOX_ABOUT_DEVICE, {"deviceId": self.id}),
+            self.account.request(
+                API_LITTERBOX_TODAY_CLEAN_TIMES, {"deviceId": self.id, "date": today}
+            ),
+            self.account.request(
+                API_LITTERBOX_PET_TODAY_COUNTS,
+                {"deviceId": self.id, "petId": "-1", "date": today},
+            ),
         ]
         (
             stats_rsp,
             pets_rsp,
-            linked_rsp,
-            selectable_rsp,
             wifi_rsp,
             notice_rsp,
-            about_rsp,
+            clean_rsp,
+            toilet_rsp,
         ) = await asyncio.gather(*requests)
 
         self._device_stats = stats_rsp.get("data", {}).get("compareData", {})
         self._pet_stats = pets_rsp.get("data", {}).get("cats", [])
-        self._linked_pets = linked_rsp.get("data", [])
-        self._selectable_pets = selectable_rsp.get("data", {}).get("cats", [])
         self._wifi_info = wifi_rsp.get("data", {}).get("wifiInfo", {})
         self.set_notice_configs(notice_rsp.get("data", {}).get("noticeConfigs", []))
-        self._about_device = about_rsp.get("data", {}).get("info", {})
+        self._today_clean_times = (clean_rsp.get("data") or {}).get("cleanTimes")
+        self._today_toilet_count = as_int(
+            (toilet_rsp.get("data") or {}).get("toiletCount")
+        )
 
     def set_notice_configs(self, configs: list | None) -> None:
         """Set notice configs and update the notice map."""
@@ -670,17 +681,6 @@ class C08Device(LitterDevice):
             "pave_start": ("RUN", "PAVE"),
             "pave_pause": ("PAUSE", "PAVE"),
         }
-
-    def _quiet_time_range(self) -> tuple[time, time]:
-        """Return quiet time range with sensible defaults."""
-        quiet_times = self.detail.get("quietTimes") or ""
-        if quiet_times and "-" in quiet_times:
-            start_raw, end_raw = quiet_times.split("-", 1)
-            try:
-                return time.fromisoformat(start_raw), time.fromisoformat(end_raw)
-            except ValueError:
-                _LOGGER.debug("Invalid quietTimes value: %s", quiet_times)
-        return DEFAULT_QUIET_START, DEFAULT_QUIET_END
 
     @staticmethod
     def _bool_value(value) -> bool:

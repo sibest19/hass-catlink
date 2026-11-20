@@ -2,7 +2,14 @@
 
 from typing import TYPE_CHECKING
 
-from ..const import _LOGGER
+from homeassistant.const import EntityCategory
+from homeassistant.helpers.device_registry import (
+    CONNECTION_NETWORK_MAC,
+    DeviceInfo,
+    format_mac,
+)
+
+from ..const import _LOGGER, DOMAIN
 from ..helpers import format_api_error
 from ..models.additional_cfg import AdditionalDeviceConfig
 from ..models.api.device import DeviceInfoBase
@@ -10,6 +17,11 @@ from ..models.api.parse import parse_response
 
 if TYPE_CHECKING:
     from ..modules.devices_coordinator import DevicesCoordinator
+
+
+# Product names as the app shows them. Only the C08's ships in English; the
+# others come from CatLink's servers at runtime, so they fall back to the type.
+PRODUCT_NAMES = {"C08": "SCOOPER SE 2"}
 
 
 class Device:
@@ -85,6 +97,22 @@ class Device:
             return None
 
     @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device card details: model, firmware and MAC."""
+        product = PRODUCT_NAMES.get(self.type)
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.type}_{self.mac}")},
+            connections={(CONNECTION_NETWORK_MAC, format_mac(self.mac))}
+            if self.mac
+            else set(),
+            name=self.name,
+            manufacturer="CatLink",
+            model=product or self.type,
+            model_id=self.type if product else None,
+            sw_version=self.detail.get("firmwareVersion"),
+        )
+
+    @property
     def name(self) -> str:
         """Return the device name."""
         try:
@@ -144,7 +172,6 @@ class Device:
         """Return the device sensors."""
         return {
             "state": {
-                "icon": "mdi:information",
                 "state_attrs": self.state_attrs,
             },
         }
@@ -169,13 +196,12 @@ class Device:
         """Return the device selects."""
         return {
             "mode": {
-                "icon": "mdi:menu",
+                "entity_category": EntityCategory.CONFIG,
                 "options": list(self.modes.values()),
                 "state_attrs": self.mode_attrs,
                 "async_select": self.select_mode,
             },
             "action": {
-                "icon": "mdi:play-box",
                 "options": list(self.actions.values()),
                 "async_select": self.select_action,
                 "delay_update": 5,

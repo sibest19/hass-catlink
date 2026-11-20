@@ -8,4 +8,3 @@ from .base import CatlinkEntity
 class CatlinkSensorEntity(CatlinkEntity, SensorEntity):
     """Sensor entity for CatLink."""
 
-    _entity_domain = "sensor"

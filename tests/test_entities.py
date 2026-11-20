@@ -76,14 +76,17 @@ class TestCatlinkEntity:
     ) -> None:
         """Test CatlinkEntity initializes with correct attributes."""
         mock_device.coordinator = mock_coordinator
-        entity = CatlinkEntity("error", mock_device, {"icon": "mdi:alert"})
+        entity = CatlinkEntity("error", mock_device, {})
         entity.coordinator = mock_coordinator
         entity.hass = hass
         _attach_platform(hass, entity, "sensor")
 
         assert entity._name == "error"
         assert entity._device == mock_device
-        assert entity._attr_icon == "mdi:alert"
+        # Icons come from icons.json by translation key, and entity_id is left
+        # to Home Assistant.
+        assert not hasattr(entity, "_attr_icon")
+        assert entity.entity_id is None
         # has_entity_name is True, so Home Assistant prepends the device name
         # and takes the entity half from the translations via translation_key.
         assert entity._attr_has_entity_name is True
@@ -94,23 +97,66 @@ class TestCatlinkEntity:
         assert entity._attr_device_id == "LITTER_BOX_599_AABBCCDDEEFF"
         assert entity._attr_unique_id == "LITTER_BOX_599_AABBCCDDEEFF-error"
 
-    def test_entity_device_info(
-        self, hass, mock_device, mock_coordinator
+    async def test_device_listener_follows_unique_id_and_is_removed(
+        self, hass, real_device, mock_coordinator
     ) -> None:
-        """Test CatlinkEntity device_info."""
-        mock_device.coordinator = mock_coordinator
-        entity = CatlinkEntity("state", mock_device)
-        entity.coordinator = mock_coordinator
-        entity.hass = hass
+        """Test the update callback is keyed by unique_id and dropped on removal.
 
-        info = entity._attr_device_info
-        assert info["identifiers"] == {
-            ("catlink", "LITTER_BOX_599_AABBCCDDEEFF")
+        Keyed by entity_id it went stale when the user renamed the entity.
+        """
+        real_device.coordinator = mock_coordinator
+        entity = CatlinkSensorEntity("error", real_device)
+        entity.hass = hass
+        entity.entity_id = "sensor.test"
+        _attach_platform(hass, entity, "sensor")
+
+        await entity.async_added_to_hass()
+        assert set(real_device.listeners) == {entity.unique_id}
+
+        await entity.async_will_remove_from_hass()
+        assert real_device.listeners == {}
+
+    def test_entity_device_info(self, mock_coordinator) -> None:
+        """Test the device card shows the app's product name, MAC and firmware."""
+        from custom_components.catlink.devices.c08 import C08Device
+
+        device = C08Device(
+            {
+                "id": "1",
+                "mac": "2442E3414413",
+                "deviceType": "C08",
+                "deviceName": "SCOOPER C08",
+                "model": "MODEL_00",
+            },
+            mock_coordinator,
+        )
+        device.detail = {"firmwareVersion": "V04.22"}
+        entity = CatlinkEntity("state", device)
+
+        assert entity._attr_device_info == {
+            "identifiers": {("catlink", "C08_2442E3414413")},
+            "connections": {("mac", "24:42:e3:41:44:13")},
+            "name": "SCOOPER C08",
+            "manufacturer": "CatLink",
+            "model": "SCOOPER SE 2",
+            "model_id": "C08",
+            "sw_version": "V04.22",
         }
-        assert info["name"] == "Test Litter Box"
-        assert info["model"] == "LB599"
-        assert info["manufacturer"] == "CatLink"
-        assert info["sw_version"] == "1.0.0"
+
+    def test_cat_device_info(self, mock_coordinator) -> None:
+        """Test a cat's device card has no MAC or firmware."""
+        from custom_components.catlink.devices.cat import CatDevice
+
+        device = CatDevice(
+            {"id": "cat-1", "mac": "cat-1", "deviceType": "CAT", "deviceName": "Zulu"},
+            mock_coordinator,
+        )
+        assert device.device_info == {
+            "identifiers": {("catlink", "CAT_cat-1")},
+            "name": "Zulu",
+            "manufacturer": "CatLink",
+            "model": "Cat",
+        }
 
     def test_entity_update_from_device(
         self, hass, real_device, mock_coordinator
@@ -122,7 +168,7 @@ class TestCatlinkEntity:
         entity.hass = hass
 
         entity.update()
-        assert entity._attr_state == "Normal"
+        assert entity._attr_native_value == "Normal"
 
     def test_entity_unique_id_format(
         self, hass, mock_device, mock_coordinator
@@ -297,6 +343,7 @@ class TestCatlinkSelectEntity:
         )
         entity.coordinator = mock_coordinator
         entity.hass = hass
+        entity.entity_id = "select.test"
         _attach_platform(hass, entity, "select")
 
         result = await entity.async_select_option("manual")
@@ -323,7 +370,6 @@ class TestCatlinkSensorEntity:
         entity.hass = hass
 
         assert entity._name == "error"
-        assert entity._attr_icon == "mdi:alert"
 
     def test_sensor_update_sets_state_and_attrs(
         self, hass, mock_device, mock_coordinator
@@ -345,7 +391,7 @@ class TestCatlinkSensorEntity:
         entity.hass = hass
 
         entity.update()
-        assert entity._attr_state == 5
+        assert entity._attr_native_value == 5
         assert entity._attr_extra_state_attributes == {"days_left": 5}
         assert entity._attr_native_unit_of_measurement == "days"
 
@@ -364,7 +410,7 @@ class TestCatlinkSensorEntity:
         entity.hass = hass
 
         entity.update()
-        assert entity._attr_state == 2.5
+        assert entity._attr_native_value == 2.5
         assert entity._attr_native_unit_of_measurement == "kg"
 
 
@@ -400,6 +446,7 @@ class TestCatlinkSwitchEntity:
         )
         entity.coordinator = mock_coordinator
         entity.hass = hass
+        entity.entity_id = "switch.test"
         _attach_platform(hass, entity, "switch")
 
         await entity.async_turn_on()
@@ -419,6 +466,7 @@ class TestCatlinkSwitchEntity:
         )
         entity.coordinator = mock_coordinator
         entity.hass = hass
+        entity.entity_id = "switch.test"
         _attach_platform(hass, entity, "switch")
         entity._attr_is_on = True
 
@@ -427,34 +475,22 @@ class TestCatlinkSwitchEntity:
         mock_turn_off.assert_called_once()
 
 
-class TestEntityIdDomain:
-    """Tests that entity IDs use their own platform domain, not the integration."""
+class TestEntityIdLeftToHomeAssistant:
+    """Tests that the integration never sets entity_id itself."""
 
     @pytest.mark.parametrize(
-        ("cls", "expected_domain"),
+        "cls",
         [
-            (CatlinkSensorEntity, "sensor"),
-            (CatlinkBinarySensorEntity, "binary_sensor"),
-            (CatlinkSwitchEntity, "switch"),
-            (CatlinkSelectEntity, "select"),
-            (CatlinkButtonEntity, "button"),
-            (CatlinkNumberEntity, "number"),
+            CatlinkSensorEntity,
+            CatlinkBinarySensorEntity,
+            CatlinkSwitchEntity,
+            CatlinkSelectEntity,
+            CatlinkButtonEntity,
+            CatlinkNumberEntity,
         ],
     )
-    def test_entity_id_uses_platform_domain(
-        self, mock_device, mock_coordinator, cls, expected_domain
-    ) -> None:
-        """Test the entity_id domain matches the platform, not 'catlink'.
-
-        Home Assistant warns on a mismatched domain and stops accepting it in
-        2027.5.0 (hasscc/catlink#61).
-        """
+    def test_entity_id_is_not_set(self, mock_device, mock_coordinator, cls) -> None:
+        """Test Home Assistant generates the entity_id from area, device and name."""
         mock_device.coordinator = mock_coordinator
         entity = cls("state", mock_device, {})
-        assert entity.entity_id.split(".")[0] == expected_domain
-
-    def test_object_id_is_unchanged(self, mock_device, mock_coordinator) -> None:
-        """Test the object_id half is untouched, so existing IDs keep working."""
-        mock_device.coordinator = mock_coordinator
-        entity = CatlinkSensorEntity("litter_weight", mock_device, {})
-        assert entity.entity_id.split(".", 1)[1].endswith("_litter_weight")
+        assert entity.entity_id is None

@@ -3,7 +3,6 @@
 import asyncio
 
 from homeassistant.components import persistent_notification
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
@@ -13,12 +12,6 @@ from ..devices.base import Device
 
 class CatlinkEntity(CoordinatorEntity):
     """CatlinkEntity."""
-
-    # Platform domain of the concrete subclass. It has to match the platform the
-    # entity is added to: Home Assistant warns about a mismatched entity_id
-    # domain and stops accepting it in 2027.5. Subclasses that leave this None
-    # let Home Assistant generate the entity_id itself.
-    _entity_domain: str | None = None
 
     def __init__(self, name, device: Device, option=None) -> None:
         """Initialize the entity."""
@@ -39,15 +32,21 @@ class CatlinkEntity(CoordinatorEntity):
         self._attr_has_entity_name = True
         self._attr_device_id = f"{device.type}_{device.mac}"
         self._attr_unique_id = f"{self._attr_device_id}-{name}"
-        if self._entity_domain:
-            mac = device.mac[-4:] if device.mac else device.id
-            object_id = f"{device.type}_{mac}_{name}"
-            self.entity_id = f"{self._entity_domain}.{slugify(object_id)}"
-        # The entity key doubles as the translation key, so state translations
-        # live under entity.<domain>.<key>.state.<value> in strings.json.
+        # entity_id is left to Home Assistant, which builds it from the area,
+        # device and entity names.
+        #
+        # The entity key doubles as the translation key, so names, state
+        # translations and icons live under entity.<domain>.<key> in strings.json
+        # and icons.json. An option "translation_key" of None leaves the entity
+        # named after its device class.
         self._attr_translation_key = self._option.get("translation_key", slugify(name))
-        self._attr_icon = self._option.get("icon")
         self._attr_device_class = self._option.get("class")
+        self._attr_entity_category = self._option.get("entity_category")
+        self._attr_entity_registry_enabled_default = self._option.get(
+            "enabled_default", True
+        )
+        self._attr_options = self._option.get("options")
+        self._attr_native_value = None
         self._attr_native_unit_of_measurement = self._option.get("unit")
         self._attr_state_class = self._option.get("state_class")
         entity_picture = self._option.get("entity_picture")
@@ -55,19 +54,19 @@ class CatlinkEntity(CoordinatorEntity):
             self._attr_entity_picture = entity_picture()
         elif entity_picture:
             self._attr_entity_picture = entity_picture
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self._attr_device_id)},
-            name=device.name,
-            model=device.model,
-            manufacturer="CatLink",
-            sw_version=device.detail.get("firmwareVersion"),
-        )
+        self._attr_device_info = device.device_info
 
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
-        self._device.listeners[self.entity_id] = self._handle_coordinator_update
+        # Keyed by unique_id: entity_id can change while the entity lives.
+        self._device.listeners[self.unique_id] = self._handle_coordinator_update
         self._handle_coordinator_update()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Stop device updates from reaching a removed entity."""
+        self._device.listeners.pop(self.unique_id, None)
+        await super().async_will_remove_from_hass()
 
     def _handle_coordinator_update(self):
         self.update()
@@ -84,9 +83,13 @@ class CatlinkEntity(CoordinatorEntity):
     def update(self) -> None:
         """Update the entity."""
         if hasattr(self._device, self._name):
-            self._attr_state = getattr(self._device, self._name)
+            # Each platform reads its value from here (native_value,
+            # current_option, is_on), so Home Assistant's unit, device class
+            # and enum handling applies.
+            self._attr_native_value = getattr(self._device, self._name)
             _LOGGER.debug(
-                "Entity update: %s", [self.entity_id, self._name, self._attr_state]
+                "Entity update: %s",
+                [self.entity_id, self._name, self._attr_native_value],
             )
         entity_picture = self._option.get("entity_picture")
         if callable(entity_picture):
@@ -95,11 +98,6 @@ class CatlinkEntity(CoordinatorEntity):
         fun = self._option.get("state_attrs")
         if callable(fun):
             self._attr_extra_state_attributes = fun()
-
-    @property
-    def state(self) -> str:
-        """Return the state of the entity."""
-        return self._attr_state
 
     async def async_request_api(self, api, params=None, method="GET", **kwargs) -> dict:
         """Request API."""

@@ -2,22 +2,34 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
-from custom_components.catlink.devices.base import Device
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfMass
-from homeassistant.util import dt as dt_util
+from homeassistant.helpers.device_registry import DeviceInfo
+
+from custom_components.catlink.const import DOMAIN
+from custom_components.catlink.devices.base import Device
 
 if TYPE_CHECKING:
     from custom_components.catlink.modules.devices_coordinator import DevicesCoordinator
 
 
+# As in the app's GenderUtils.
 GENDER_LABELS: dict[int, str] = {
     1: "male",
-    2: "female",
-    3: "neutered_male",
+    2: "neutered_male",
+    3: "female",
     4: "neutered_female",
+}
+
+# The app's weightUnitTip values, which follow the account's unit setting.
+MASS_UNITS: dict[str, str] = {
+    "kg": UnitOfMass.KILOGRAMS,
+    "g": UnitOfMass.GRAMS,
+    "lb": UnitOfMass.POUNDS,
+    "oz": UnitOfMass.OUNCES,
 }
 
 
@@ -49,19 +61,29 @@ class CatDevice(Device):
         return self.detail
 
     @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device card details: a cat has no MAC or firmware."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self.type}_{self.mac}")},
+            name=self.name,
+            manufacturer="CatLink",
+            model="Cat",
+        )
+
+    @property
     def pet_id(self) -> str | None:
         """Return the pet id."""
         return self.data.get("pet_id") or self.data.get("id")
 
     @property
     def weight(self) -> float | None:
-        """Return the pet weight."""
-        return self.data.get("weight")
+        """Return the measured weight shown on the app's weight card."""
+        return self._summary_section("weightsInfo").get("currentWeight")
 
     @property
     def age_years(self) -> int | None:
         """Return the pet age in years."""
-        return self.data.get("year") or self.data.get("age")
+        return self.data.get("age")
 
     @property
     def age_months(self) -> int | None:
@@ -84,12 +106,11 @@ class CatDevice(Device):
         return None
 
     @property
-    def birthday(self) -> str | None:
-        """Return the pet birthday as ISO date."""
-        birthday = self.data.get("birthday")
-        if not birthday:
-            return None
-        return dt_util.utc_from_timestamp(birthday / 1000).date().isoformat()
+    def birthday(self) -> date | None:
+        """Return the pet birthday as ISO date, as the app's edit page shows it."""
+        # Not the cats-list timestamp: it is midnight China time, a day off in UTC.
+        value = (self.data.get("pet_info") or {}).get("birthdayString")
+        return date.fromisoformat(value) if value else None
 
     @property
     def avatar_url(self) -> str | None:
@@ -108,65 +129,49 @@ class CatDevice(Device):
         summary = self._summary()
         return summary.get(name) or {}
 
+    def _mass_unit(self, section: str) -> str | None:
+        return MASS_UNITS.get(self._summary_section(section).get("weightUnitTip"))
+
     @staticmethod
-    def _to_float(value) -> float | None:
-        """Convert a value to float when possible."""
-        if value is None:
-            return None
-        if isinstance(value, (int, float)):
-            return float(value)
-        if isinstance(value, str):
-            try:
-                return float(value)
-            except ValueError:
-                return None
-        return None
+    def _count(value) -> int | None:
+        return None if value is None else int(value)
 
     @property
     def status(self) -> str | None:
         """Return the pet health status description."""
-        summary = self._summary()
-        return summary.get("statusDescription") or summary.get("status")
+        return (self.data.get("health_status") or {}).get("statusDescription")
 
     @property
     def toilet_times(self) -> int | None:
-        """Return the number of toilet visits."""
-        return self._summary_section("toilet").get("times")
-
-    @property
-    def toilet_weight_avg(self) -> float | None:
-        """Return the average toilet weight."""
-        return self._summary_section("toilet").get("weightAvg")
+        """Return the toilet visits: poo, pee and unknown, as the app adds them."""
+        toilet = self._summary_section("toiletInfo")
+        counts = [
+            toilet.get(k)
+            for k in ("stoolFrequency", "urinateFrequency", "toiletFrequency")
+        ]
+        if all(c is None for c in counts):
+            return None
+        return int(sum(c or 0 for c in counts))
 
     @property
     def pee_times(self) -> int | None:
         """Return the number of pee events."""
-        return self._summary_section("toilet").get("peed")
+        return self._count(self._summary_section("toiletInfo").get("urinateFrequency"))
 
     @property
     def poo_times(self) -> int | None:
         """Return the number of poo events."""
-        return self._summary_section("toilet").get("pood")
+        return self._count(self._summary_section("toiletInfo").get("stoolFrequency"))
 
     @property
     def drink_times(self) -> int | None:
         """Return the drink times."""
-        return self._summary_section("drink").get("times")
-
-    @property
-    def diet_times(self) -> int | None:
-        """Return the diet times."""
-        return self._summary_section("diet").get("times")
+        return self._count(self._summary_section("drinkInfo").get("drinkCount"))
 
     @property
     def diet_intakes(self) -> float | None:
-        """Return the diet intakes."""
-        return self._to_float(self._summary_section("diet").get("intakes"))
-
-    @property
-    def sport_active_duration(self) -> int | None:
-        """Return the sport active duration."""
-        return self._summary_section("sport").get("activeDuration")
+        """Return the amount eaten today."""
+        return self._summary_section("eatInfo").get("eatTotalAmount")
 
     def cat_attrs(self) -> dict:
         """Return the cat attributes."""
@@ -179,13 +184,10 @@ class CatDevice(Device):
             "age_years": self.age_years,
             "age_months": self.age_months,
             "toilet_times": self.toilet_times,
-            "toilet_weight_avg": self.toilet_weight_avg,
             "pee_times": self.pee_times,
             "poo_times": self.poo_times,
             "drink_times": self.drink_times,
-            "diet_times": self.diet_times,
             "diet_intakes": self.diet_intakes,
-            "sport_active_duration": self.sport_active_duration,
         }
 
     @property
@@ -193,61 +195,43 @@ class CatDevice(Device):
         """Return cat sensors."""
         return {
             "status": {
-                "icon": "mdi:information",
                 "state_attrs": self.cat_attrs,
             },
             "weight": {
-                "icon": "mdi:scale",
+                "translation_key": None,
                 "class": SensorDeviceClass.WEIGHT,
                 "state_class": SensorStateClass.MEASUREMENT,
-                "unit": UnitOfMass.KILOGRAMS,
+                "unit": self._mass_unit("weightsInfo"),
             },
-            "age_years": {
-                "icon": "mdi:calendar",
-            },
-            "age_months": {
-                "icon": "mdi:calendar",
-            },
+            "age_years": {},
+            "age_months": {},
             "gender_label": {
-                "icon": "mdi:gender-male-female",
+                "class": SensorDeviceClass.ENUM,
+                "options": list(GENDER_LABELS.values()),
             },
-            "breed": {
-                "icon": "mdi:cat",
-            },
+            "breed": {},
             "birthday": {
-                "icon": "mdi:cake-variant",
                 "class": SensorDeviceClass.DATE,
             },
             "avatar": {
-                "icon": "mdi:image",
                 "entity_picture": self.avatar_url,
             },
             "toilet_times": {
-                "icon": "mdi:toilet",
-            },
-            "toilet_weight_avg": {
-                "icon": "mdi:scale",
-                "class": SensorDeviceClass.WEIGHT,
-                "state_class": SensorStateClass.MEASUREMENT,
-                "unit": UnitOfMass.KILOGRAMS,
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "pee_times": {
-                "icon": "mdi:water",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "poo_times": {
-                "icon": "mdi:emoticon-poop",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "drink_times": {
-                "icon": "mdi:cup-water",
-            },
-            "diet_times": {
-                "icon": "mdi:food",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
             "diet_intakes": {
-                "icon": "mdi:food",
-            },
-            "sport_active_duration": {
-                "icon": "mdi:run",
+                "state_class": SensorStateClass.MEASUREMENT,
+                "class": SensorDeviceClass.WEIGHT,
+                "unit": self._mass_unit("eatInfo"),
             },
         }
 

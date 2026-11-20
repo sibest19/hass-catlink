@@ -6,7 +6,7 @@ import datetime
 import hashlib
 import time
 
-from aiohttp import ClientConnectorError
+from aiohttp import ClientError
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -115,6 +115,7 @@ class Account:
         """Request the api."""
         method = method.upper()
         url = self.api_url(api)
+        retried = kwargs.pop("_retried", False)
         kws = {
             "timeout": 60,
             "headers": {
@@ -126,36 +127,40 @@ class Account:
             },
         }
         kws.update(kwargs)
-        if pms is None:
-            pms = {}
+        # Keep the unsigned params: a re-login retry must sign them afresh.
+        # Booleans go out as "true"/"false", as the official app sends them.
+        unsigned = {
+            k: str(v).lower() if isinstance(v, bool) else v
+            for k, v in (pms or {}).items()
+        }
+        pms = dict(unsigned)
         pms["noncestr"] = int(time.time() * 1000)
         if self.token:
             pms[CONF_TOKEN] = self.token
         pms["sign"] = self.params_sign(pms)
-        if method in ["GET"]:
-            kws["params"] = pms
-        elif method in ["POST_GET"]:
-            method = "POST"
+        if method in ["GET", "POST_GET"]:
             kws["params"] = pms
         else:
             kws["data"] = pms
+        http_method = "POST" if method == "POST_GET" else method
         try:
-            req = await self.http.request(method, url, **kws)
+            req = await self.http.request(http_method, url, **kws)
             result = await req.json() or {}
             _LOGGER.debug("API response %s %s: %s", method, api, result)
             
             # Handle token expiration (1002: Illegal token)
-            if result.get("returnCode") == 1002 and not kwargs.get("_retried"):
+            if result.get("returnCode") == 1002 and not retried:
                 _LOGGER.info(
                     "Token expired (1002), attempting re-login for %s", self.identifier
                 )
                 if await self.async_login():
-                    kwargs["_retried"] = True
-                    return await self.request(api, pms, method, **kwargs)
+                    return await self.request(
+                        api, unsigned, method, _retried=True, **kwargs
+                    )
             
             return result
-        except (ClientConnectorError, TimeoutError) as exc:  # noqa: UP041
-            _LOGGER.error("Request api failed: %s", [method, url, pms, exc])
+        except (ClientError, TimeoutError) as exc:  # noqa: UP041
+            _LOGGER.error("Request api failed: %s", [method, url, exc])
         return {}
 
     async def async_login(self) -> bool:
@@ -180,7 +185,8 @@ class Account:
                 CONF_TOKEN: None,
             }
         )
-        rsp = await self.request(api, pms, "POST")
+        # _retried: a 1002 here must not trigger another login, recursively.
+        rsp = await self.request(api, pms, "POST", _retried=True)
         tok = rsp.get("data", {}).get("token")
         if not tok:
             # Never log pms here: it carries the encrypted password.
@@ -227,10 +233,6 @@ class Account:
                 return []
         api = "token/device/union/list/sorted"
         rsp = await self.request(api, {"type": "NONE"})
-        eno = rsp.get("returnCode", 0)
-        if eno == 1002:  # Illegal token
-            if await self.async_login():
-                rsp = await self.request(api, {"type": "NONE"})
         dls = rsp.get("data", {}).get(CONF_DEVICES) or []
         if not dls:
             _LOGGER.warning("Got devices for %s failed: %s", self.identifier, rsp)
@@ -246,39 +248,44 @@ class Account:
         if timezone_id:
             params["timezoneId"] = timezone_id
         rsp = await self.request(api, params)
-        eno = rsp.get("returnCode", 0)
-        if eno == 1002:  # Illegal token
-            if await self.async_login():
-                rsp = await self.request(api, params)
         cats = rsp.get("data", {}).get("cats") or []
         if not cats:
             _LOGGER.warning("Got cats for %s failed: %s", self.identifier, rsp)
         return cats
 
     async def get_cat_summary_simple(
-        self,
-        pet_id: str,
-        date: str,
-        timezone_id: str | None,
-        sport: int = 1,
+        self, pet_id: str, date: str, timezone_id: str | None
     ) -> dict:
-        """Get a cat summary for a given date."""
+        """Get the day cards (weight, toilet, drink, diet) of the app's cat page."""
         if not self.token:
             if not await self.async_login():
                 return {}
-        api = "token/pet/health/v3/summarySimple"
-        params = {
-            "petId": pet_id,
-            "date": date,
-            "sport": sport,
-        }
+        # The server answers 1000 without lastRequestTime, which the app always sends.
+        params = {"petId": pet_id, "date": date, "lastRequestTime": ""}
         if timezone_id:
             params["timezoneId"] = timezone_id
-        rsp = await self.request(api, params)
-        eno = rsp.get("returnCode", 0)
-        if eno == 1002:  # Illegal token
-            if await self.async_login():
-                rsp = await self.request(api, params)
+        rsp = await self.request("token/pet/data/chart/summarySimple", params)
+        return (rsp.get("data") or {}).get("petSummarySimpleVO") or {}
+
+    async def get_pet_info(self, pet_id: str) -> dict:
+        """Get the pet profile, as the app's cat edit page shows it."""
+        if not self.token:
+            if not await self.async_login():
+                return {}
+        rsp = await self.request("token/pet/info", {"petId": pet_id})
+        return (rsp.get("data") or {}).get("pet") or {}
+
+    async def get_cat_health_status(
+        self, pet_id: str, date: str, timezone_id: str | None
+    ) -> dict:
+        """Get the overall cat health status, as the app's cat page shows it."""
+        if not self.token:
+            if not await self.async_login():
+                return {}
+        params = {"petId": pet_id, "date": date}
+        if timezone_id:
+            params["timezoneId"] = timezone_id
+        rsp = await self.request("token/pet/data/chart/healthStatus", params)
         return rsp.get("data") or {}
 
     @staticmethod

@@ -6,11 +6,11 @@ from homeassistant.const import CONF_DEVICES
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .account import Account
-from ..const import _LOGGER, CONF_DEVICE_IDS, DOMAIN, SUPPORTED_DOMAINS
+from ..const import _LOGGER, DOMAIN, SUPPORTED_DOMAINS
 from ..devices.registry import create_device
 from ..entities.registry import DOMAIN_ENTITY_CLASSES
 from ..models.additional_cfg import AdditionalDeviceConfig
+from .account import Account
 
 
 class DevicesCoordinator(DataUpdateCoordinator):
@@ -32,6 +32,9 @@ class DevicesCoordinator(DataUpdateCoordinator):
         self.account = account
         self.config_entry_id = config_entry_id
         self._subs = {}
+        # Per coordinator, so accounts don't see each other's devices and a
+        # reloaded entry starts from fresh devices bound to this coordinator.
+        self.devices = {}
         self._device_ids = device_ids
         self.additional_config = self.hass.data[DOMAIN]["config"].get(CONF_DEVICES, {})
         self.additional_config = [
@@ -59,38 +62,31 @@ class DevicesCoordinator(DataUpdateCoordinator):
                 (cfg for cfg in self.additional_config if cfg.mac == dat.get("mac")),
                 None,
             )
-            old = self.hass.data[DOMAIN][CONF_DEVICES].get(did)
+            old = self.devices.get(did)
             if old:
                 dvc = old
                 dvc.update_data(dat)
             else:
                 dvc = create_device(dat, self, additional_config)
-                self.hass.data[DOMAIN][CONF_DEVICES][did] = dvc
+                self.devices[did] = dvc
             await dvc.async_init()
             for d in SUPPORTED_DOMAINS:
                 await self.update_hass_entities(d, dvc)
         cats = await self.account.get_cats(self.hass.config.time_zone)
-        if cats:
-            timezone_id = self.hass.config.time_zone
-            date = dt_util.now().date().isoformat()
-            requests = [
-                self.account.get_cat_summary_simple(
-                    cat.get("id"), date, timezone_id
+        timezone_id = self.hass.config.time_zone
+        date = dt_util.now().date().isoformat()
+        pet_ids = [cat["id"] for cat in cats if cat.get("id")]
+        per_cat = await asyncio.gather(
+            *(
+                asyncio.gather(
+                    self.account.get_cat_summary_simple(p, date, timezone_id),
+                    self.account.get_cat_health_status(p, date, timezone_id),
+                    self.account.get_pet_info(p),
                 )
-                for cat in cats
-                if cat.get("id")
-            ]
-            summaries = (
-                await asyncio.gather(*requests) if requests else []
+                for p in pet_ids
             )
-        else:
-            summaries = []
-
-        summary_map = {
-            cat.get("id"): summary
-            for cat, summary in zip(cats, summaries, strict=False)
-            if cat.get("id")
-        }
+        )
+        extras = dict(zip(pet_ids, per_cat, strict=True))
         for cat in cats:
             pet_id = cat.get("id")
             if not pet_id:
@@ -102,19 +98,23 @@ class DevicesCoordinator(DataUpdateCoordinator):
             cat_data["deviceType"] = "CAT"
             cat_data["deviceName"] = cat_data.get("petName") or f"Cat {pet_id}"
             cat_data.setdefault("model", cat_data.get("breedName") or "Cat")
-            cat_data["summary_simple"] = summary_map.get(pet_id, {})
+            (
+                cat_data["summary_simple"],
+                cat_data["health_status"],
+                cat_data["pet_info"],
+            ) = extras[pet_id]
             did = cat_data["id"]
-            old = self.hass.data[DOMAIN][CONF_DEVICES].get(did)
+            old = self.devices.get(did)
             if old:
                 dvc = old
                 dvc.update_data(cat_data)
             else:
                 dvc = create_device(cat_data, self, None)
-                self.hass.data[DOMAIN][CONF_DEVICES][did] = dvc
+                self.devices[did] = dvc
             await dvc.async_init()
             for d in SUPPORTED_DOMAINS:
                 await self.update_hass_entities(d, dvc)
-        return self.hass.data[DOMAIN][CONF_DEVICES]
+        return self.devices
 
     async def update_hass_entities(self, domain, dvc) -> None:
         """Update Home Assistant entities."""

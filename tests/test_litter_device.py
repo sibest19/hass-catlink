@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.catlink.devices.litterbox import LitterBox
+from custom_components.catlink.devices.scooper import ScooperDevice
 
 
 @pytest.fixture
@@ -28,32 +29,61 @@ def sample_device_data():
     }
 
 
+class TestLitterDeviceCleanCounts:
+    """Tests for the clean counters the app shows."""
+
+    def test_total_includes_scheduled_cleans(
+        self, mock_coordinator, sample_device_data
+    ) -> None:
+        """Test the total adds auto, manual and scheduled cleans."""
+        device = ScooperDevice(sample_device_data, mock_coordinator)
+        device.detail = {"inductionTimes": "3", "manualTimes": "1", "timerTimes": "2"}
+        assert device.total_clean_time == 6
+
+
 class TestLitterDeviceState:
-    """Tests for LitterDevice state property."""
+    """Tests for the workStatus state the Scooper shows (the 599 has its own)."""
 
     def test_state_idle(self, mock_coordinator, sample_device_data) -> None:
         """Test state maps workStatus 00 to idle."""
-        device = LitterBox(sample_device_data, mock_coordinator)
+        device = ScooperDevice(sample_device_data, mock_coordinator)
         device.detail = {"workStatus": "00"}
         assert device.state == "idle"
 
     def test_state_running(self, mock_coordinator, sample_device_data) -> None:
         """Test state maps workStatus 01 to running."""
-        device = LitterBox(sample_device_data, mock_coordinator)
+        device = ScooperDevice(sample_device_data, mock_coordinator)
         device.detail = {"workStatus": "01"}
         assert device.state == "running"
 
     def test_state_need_reset(self, mock_coordinator, sample_device_data) -> None:
         """Test state maps workStatus 02 to need_reset."""
-        device = LitterBox(sample_device_data, mock_coordinator)
+        device = ScooperDevice(sample_device_data, mock_coordinator)
         device.detail = {"workStatus": "02"}
         assert device.state == "need_reset"
 
     def test_state_unknown_fallback(self, mock_coordinator, sample_device_data) -> None:
-        """Test state returns raw value for unknown workStatus."""
-        device = LitterBox(sample_device_data, mock_coordinator)
+        """Test an unknown workStatus is None, as an enum sensor needs."""
+        device = ScooperDevice(sample_device_data, mock_coordinator)
         device.detail = {"workStatus": "99"}
-        assert device.state == "99"
+        assert device.state is None
+
+    def test_litterbox_599_state_from_app_fields(
+        self, mock_coordinator, sample_device_data
+    ) -> None:
+        """Test the 599 state follows cleanStatus/emptyStatus/replaceGarbageBag."""
+        device = LitterBox(sample_device_data, mock_coordinator)
+        cases = [
+            ({"workStatus": "01"}, "idle"),
+            ({"cleanStatus": "01"}, "cleaning"),
+            ({"emptyStatus": "01"}, "emptying"),
+            ({"emptyStatus": "02"}, "resetting"),
+            ({"replaceGarbageBag": 3}, "resetting"),
+            ({"replaceGarbageBag": 1}, "changing_bag"),
+        ]
+        for detail, expected in cases:
+            device.detail = detail
+            assert device.state == expected, detail
 
 
 class TestLitterDeviceLitterWeight:
@@ -98,37 +128,6 @@ class TestLitterDeviceCleanTimes:
         device = LitterBox(sample_device_data, mock_coordinator)
         device.detail = {"deodorantCountdown": 30}
         assert device.deodorant_countdown == 30
-
-
-class TestLitterDeviceOccupied:
-    """Tests for LitterDevice occupied property."""
-
-    def test_occupied_true_when_weight_increases(
-        self, mock_coordinator, sample_device_data
-    ) -> None:
-        """Test occupied True when litter weight increases during day."""
-        device = LitterBox(sample_device_data, mock_coordinator)
-        device._litter_weight_during_day.clear()
-        device._litter_weight_during_day.extend([1.0, 1.5, 2.0])
-        assert device.occupied is True
-
-    def test_occupied_false_when_weight_decreases(
-        self, mock_coordinator, sample_device_data
-    ) -> None:
-        """Test occupied False when litter weight only decreases."""
-        device = LitterBox(sample_device_data, mock_coordinator)
-        device._litter_weight_during_day.clear()
-        device._litter_weight_during_day.extend([3.0, 2.5, 2.0])
-        assert device.occupied is False
-
-    def test_occupied_false_when_empty(
-        self, mock_coordinator, sample_device_data
-    ) -> None:
-        """Test occupied False when deque has fewer than 2 entries."""
-        device = LitterBox(sample_device_data, mock_coordinator)
-        device._litter_weight_during_day.clear()
-        device._litter_weight_during_day.append(1.0)
-        assert device.occupied is False
 
 
 class TestLitterDeviceOnline:

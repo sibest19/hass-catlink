@@ -1,0 +1,260 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "light_active": {
+        "default": "mdi:lightbulb",
+        "state": {
+          "off": "mdi:lightbulb-off"
+        }
+      }
+    },
+    "button": {
+      "feed": {
+        "default": "mdi:food"
+      },
+      "reset_litter": {
+        "default": "mdi:restore"
+      },
+      "reset_deodorant": {
+        "default": "mdi:spray-bottle"
+      }
+    },
+    "number": {
+      "portions": {
+        "default": "mdi:counter"
+      }
+    },
+    "select": {
+      "mode": {
+        "default": "mdi:cog"
+      },
+      "action": {
+        "default": "mdi:play-circle"
+      },
+      "litter_type": {
+        "default": "mdi:shaker-outline"
+      },
+      "safe_time": {
+        "default": "mdi:timer-sand"
+      },
+      "garbage": {
+        "default": "mdi:sack"
+      },
+      "box_full_sensitivity": {
+        "default": "mdi:tune"
+      }
+    },
+    "sensor": {
+      "status": {
+        "default": "mdi:heart-pulse"
+      },
+      "age_years": {
+        "default": "mdi:calendar-clock"
+      },
+      "age_months": {
+        "default": "mdi:calendar-clock"
+      },
+      "gender_label": {
+        "default": "mdi:gender-male-female",
+        "state": {
+          "male": "mdi:gender-male",
+          "neutered_male": "mdi:gender-male",
+          "female": "mdi:gender-female",
+          "neutered_female": "mdi:gender-female"
+        }
+      },
+      "breed": {
+        "default": "mdi:cat"
+      },
+      "birthday": {
+        "default": "mdi:cake-variant"
+      },
+      "avatar": {
+        "default": "mdi:image"
+      },
+      "toilet_times": {
+        "default": "mdi:toilet"
+      },
+      "pee_times": {
+        "default": "mdi:water"
+      },
+      "poo_times": {
+        "default": "mdi:emoticon-poop"
+      },
+      "drink_times": {
+        "default": "mdi:cup-water"
+      },
+      "diet_intakes": {
+        "default": "mdi:food"
+      },
+      "state": {
+        "default": "mdi:information-outline",
+        "state": {
+          "idle": "mdi:check-circle-outline",
+          "running": "mdi:cog",
+          "need_reset": "mdi:restore-alert",
+          "cleaning": "mdi:broom",
+          "leveling": "mdi:waves",
+          "emptying": "mdi:delete-empty",
+          "paused": "mdi:pause-circle",
+          "cancelling": "mdi:cancel",
+          "resetting": "mdi:restore",
+          "changing_bag": "mdi:sack",
+          "flowing": "mdi:fountain",
+          "eco": "mdi:leaf",
+          "smart": "mdi:motion-sensor"
+        }
+      },
+      "error": {
+        "default": "mdi:alert-circle"
+      },
+      "last_log": {
+        "default": "mdi:history"
+      },
+      "litter_remaining_days": {
+        "default": "mdi:shaker-outline"
+      },
+      "deodorant_countdown": {
+        "default": "mdi:spray-bottle"
+      },
+      "filter_life": {
+        "default": "mdi:filter-outline"
+      },
+      "water_level": {
+        "default": "mdi:water"
+      },
+      "total_clean_time": {
+        "default": "mdi:broom"
+      },
+      "cleanings_today": {
+        "default": "mdi:broom"
+      },
+      "manual_clean_time": {
+        "default": "mdi:gesture-tap"
+      },
+      "visits_today": {
+        "default": "mdi:toilet"
+      },
+      "stats_weight_avg": {
+        "default": "mdi:scale-bathroom"
+      },
+      "stats_duration_avg": {
+        "default": "mdi:timer-outline"
+      },
+      "wifi_rssi": {
+        "default": "mdi:wifi"
+      },
+      "wifi_ssid": {
+        "default": "mdi:access-point-network"
+      },
+      "notice_config_count": {
+        "default": "mdi:bell-cog"
+      },
+      "pet_stats_count": {
+        "default": "mdi:paw"
+      },
+      "garbage_tobe_status": {
+        "default": "mdi:delete-empty",
+        "state": {
+          "almost_full": "mdi:delete",
+          "full": "mdi:delete-alert"
+        }
+      },
+      "knob_status": {
+        "default": "mdi:knob"
+      }
+    },
+    "switch": {
+      "quiet_mode": {
+        "default": "mdi:volume-off",
+        "state": {
+          "off": "mdi:volume-high"
+        }
+      },
+      "auto_burial": {
+        "default": "mdi:shovel"
+      },
+      "continuous_cleaning": {
+        "default": "mdi:autorenew"
+      },
+      "child_lock": {
+        "default": "mdi:lock",
+        "state": {
+          "off": "mdi:lock-open-variant"
+        }
+      },
+      "indicator_light": {
+        "default": "mdi:lightbulb",
+        "state": {
+          "off": "mdi:lightbulb-off"
+        }
+      },
+      "keypad_tone": {
+        "default": "mdi:volume-high",
+        "state": {
+          "off": "mdi:volume-off"
+        }
+      },
+      "auto_pet_weight_update": {
+        "default": "mdi:scale-bathroom"
+      },
+      "kitty_model": {
+        "default": "mdi:cat"
+      },
+      "notice_cat_came": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_box_full": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_replace_garbage_bag": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_wash_scooper": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_replace_deodorant": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_litter_not_enough": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_sandbox_not_enough": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_anti_pinch": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      },
+      "notice_firmware_updated": {
+        "default": "mdi:bell",
+        "state": {
+          "off": "mdi:bell-off"
+        }
+      }
+    }
+  }
+}

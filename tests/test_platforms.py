@@ -230,6 +230,7 @@ def test_every_entity_key_is_translated() -> None:
     }
 
     keys: dict[str, set[str]] = {domain: set() for domain in hass_attrs}
+    enum_options: dict[tuple[str, str], set[str]] = {}
     for dtype, cls in DEVICE_TYPES.items():
         device = cls(
             {"id": "1", "deviceType": dtype, "mac": "AA", "deviceName": "x"},
@@ -238,12 +239,21 @@ def test_every_entity_key_is_translated() -> None:
         )
         device.detail = {}
         for domain, attr in hass_attrs.items():
-            keys[domain] |= set(getattr(device, attr, None) or {})
+            for key, option in (getattr(device, attr, None) or {}).items():
+                # None means "named by its device class": no name to translate.
+                tkey = option.get("translation_key", key)
+                if tkey is None:
+                    continue
+                keys[domain].add(tkey)
+                if option.get("options") is not None:
+                    enum_options.setdefault((domain, tkey), set()).update(
+                        option["options"]
+                    )
 
     assert sum(len(v) for v in keys.values()) > 50, "device walk found nothing"
 
-    base = Path(__file__).parent.parent / "custom_components/catlink/translations"
-    for path in sorted(base.glob("*.json")):
+    root = Path(__file__).parent.parent / "custom_components/catlink"
+    for path in sorted((root / "translations").glob("*.json")):
         entity = json.loads(path.read_text())["entity"]
         for domain, domain_keys in keys.items():
             translated = {k for k, v in entity.get(domain, {}).items() if "name" in v}
@@ -255,3 +265,16 @@ def test_every_entity_key_is_translated() -> None:
                 f"{path.name}: {domain} names for keys no device creates: "
                 f"{sorted(translated - domain_keys)}"
             )
+        for (domain, tkey), options in enum_options.items():
+            states = set(entity[domain][tkey].get("state", {}))
+            assert not options - states, (
+                f"{path.name}: {domain}.{tkey} options without a translation: "
+                f"{sorted(options - states)}"
+            )
+
+    icons = json.loads((root / "icons.json").read_text())["entity"]
+    for domain, domain_icons in icons.items():
+        assert not set(domain_icons) - keys[domain], (
+            f"icons.json: {domain} icons for keys no device creates: "
+            f"{sorted(set(domain_icons) - keys[domain])}"
+        )

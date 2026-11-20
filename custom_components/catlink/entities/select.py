@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 class CatlinkSelectEntity(CatlinkEntity, SelectEntity):
     """Select entity for CatLink."""
 
-    _entity_domain = "select"
 
     def __init__(self, name, device: "Device", option=None) -> None:
         """Initialize the entity."""
@@ -24,7 +23,7 @@ class CatlinkSelectEntity(CatlinkEntity, SelectEntity):
     def update(self) -> None:
         """Update the entity."""
         super().update()
-        self._attr_current_option = self._attr_state
+        self._attr_current_option = self._attr_native_value
 
     async def async_select_option(self, option: str):
         """Change the selected option."""

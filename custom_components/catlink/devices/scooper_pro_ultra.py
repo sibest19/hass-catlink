@@ -5,6 +5,9 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING
 
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import UnitOfTime
+
 from ..const import _LOGGER
 from ..helpers import as_int
 from ..models.additional_cfg import AdditionalDeviceConfig
@@ -53,22 +56,30 @@ class ScooperProUltraDevice(LitterDevice):
         """Return the device sensors."""
         return {
             "last_log": {
-                "icon": "mdi:message",
                 "state_attrs": self.last_log_attrs,
             },
             "litter_remaining_days": {
-                "icon": "mdi:calendar",
-                "unit": "days",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "deodorant_countdown": {
-                "icon": "mdi:timer",
-                "unit": "days",
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.DAYS,
             },
             "total_clean_time": {
-                "icon": "mdi:history",
-                "unit": "times",
+                "state_class": SensorStateClass.TOTAL_INCREASING,
             },
         }
+
+    @property
+    def hass_binary_sensor(self) -> dict:
+        """Return no binary sensors: briefInfo carries no online flag."""
+        return {}
+
+    @property
+    def hass_select(self) -> dict:
+        """Return no selects: the app drives mode and actions over Aliyun IoT."""
+        return {}
 
     async def update_device_detail(self) -> dict:
         """Update device detail from visualScooper briefInfo."""
@@ -78,7 +89,8 @@ class ScooperProUltraDevice(LitterDevice):
         try:
             rsp = await self.account.request(api, pms)
             data = rsp.get("data", {})
-            parsed = parse_response(data, "deviceInfo", LitterDeviceInfo, {})
+            # No default: a field that fails validation falls back to the raw dict.
+            parsed = parse_response(data, "deviceInfo", LitterDeviceInfo)
             rdt = (
                 parsed.model_dump(by_alias=True)
                 if hasattr(parsed, "model_dump")

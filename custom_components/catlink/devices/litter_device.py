@@ -1,7 +1,9 @@
 """Litter device base class for LitterBox and ScooperDevice."""
 
-from collections import deque
 from typing import TYPE_CHECKING
+
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
+from homeassistant.const import EntityCategory
 
 from ..const import _LOGGER
 from ..helpers import as_int
@@ -24,25 +26,14 @@ class LitterDevice(LogsMixin, Device):
     ) -> None:
         """Initialize the litter device."""
         super().__init__(dat, coordinator, additional_config)
-        self._litter_weight_during_day = deque(
-            maxlen=self.additional_config.max_samples_litter or 24
-        )
         self.empty_litter_box_weight = self.additional_config.empty_weight or 0.0
 
     @property
-    def state(self) -> str:
-        """Return the device state."""
-        try:
-            sta = self.detail.get("workStatus", "")
-            dic = {
-                "00": "idle",
-                "01": "running",
-                "02": "need_reset",
-            }
-            return dic.get(f"{sta}".strip(), sta)
-        except Exception as exc:
-            _LOGGER.error("Get device state failed: %s", exc)
-            return "unknown"
+    def state(self) -> str | None:
+        """Return the device state, None for a code the app does not know."""
+        return {"00": "idle", "01": "running", "02": "need_reset"}.get(
+            f"{self.detail.get('workStatus', '')}".strip()
+        )
 
     @property
     def litter_weight(self) -> float:
@@ -53,7 +44,6 @@ class LitterDevice(LogsMixin, Device):
                 "catLitterWeight", self.empty_litter_box_weight
             )
             litter_weight = cat_litter_weight - self.empty_litter_box_weight
-            self._litter_weight_during_day.append(litter_weight)
             if litter_weight == 0.0:
                 _LOGGER.debug(
                     "litter_weight is 0: catLitterWeight=%r, empty_litter_box_weight=%r (detail keys: %s)",
@@ -76,9 +66,10 @@ class LitterDevice(LogsMixin, Device):
 
     @property
     def total_clean_time(self) -> int:
-        """Return the total clean time."""
-        return as_int(self.detail.get("inductionTimes"), 0) + as_int(
-            self.detail.get("manualTimes"), 0
+        """Return the auto, manual and scheduled cleans the app counts separately."""
+        return sum(
+            as_int(self.detail.get(k), 0)
+            for k in ("inductionTimes", "manualTimes", "timerTimes")
         )
 
     @property
@@ -92,25 +83,20 @@ class LitterDevice(LogsMixin, Device):
         return as_int(self.detail.get("deodorantCountdown"))
 
     @property
-    def occupied(self) -> bool:
-        """Return the occupied status based on litter weight changes during the day."""
-        try:
-            return any(
-                self._litter_weight_during_day[i]
-                < self._litter_weight_during_day[i + 1]
-                for i in range(len(self._litter_weight_during_day) - 1)
-            )
-        except IndexError:
-            return False
-
-    @property
     def online(self) -> bool:
         """Return the online status."""
-        try:
-            return self.detail.get("online")
-        except Exception as exc:
-            _LOGGER.error("Get online status failed: %s", exc)
-            return False
+        return bool(self.detail.get("online"))
+
+    @property
+    def hass_binary_sensor(self) -> dict:
+        """Return the device binary sensors."""
+        return {
+            "online": {
+                "translation_key": None,
+                "class": BinarySensorDeviceClass.CONNECTIVITY,
+                "entity_category": EntityCategory.DIAGNOSTIC,
+            },
+        }
 
     async def async_init(self) -> None:
         """Initialize the device."""

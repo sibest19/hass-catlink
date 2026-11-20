@@ -19,7 +19,6 @@ class TestAdditionalDeviceConfig:
         assert config.name == ""
         assert config.mac == ""
         assert config.empty_weight == 0.0
-        assert config.max_samples_litter == 24
 
     def test_with_values(self) -> None:
         """Test with provided values."""
@@ -27,12 +26,10 @@ class TestAdditionalDeviceConfig:
             name="Living Room",
             mac="AA:BB:CC:DD:EE:FF",
             empty_weight=1.5,
-            max_samples_litter=12,
         )
         assert config.name == "Living Room"
         assert config.mac == "AA:BB:CC:DD:EE:FF"
         assert config.empty_weight == 1.5
-        assert config.max_samples_litter == 12
 
 
 class TestParseResponse:

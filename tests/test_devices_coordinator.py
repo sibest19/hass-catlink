@@ -125,7 +125,7 @@ class TestDevicesCoordinatorAsyncUpdateData:
         existing_device.name = "Old Name"
         existing_device.update_data = MagicMock()
         existing_device.async_init = AsyncMock()
-        coordinator_hass_data["devices"]["dev1"] = existing_device
+        coordinator.devices["dev1"] = existing_device
 
         with patch(
             "custom_components.catlink.modules.devices_coordinator.create_device"
@@ -232,6 +232,9 @@ class TestDevicesCoordinatorAsyncUpdateData:
         mock_account.get_cat_summary_simple = AsyncMock(
             return_value={"statusDescription": "Data collection in progress"}
         )
+        mock_account.get_cat_health_status = AsyncMock(
+            return_value={"statusDescription": "Good"}
+        )
 
         with patch(
             "custom_components.catlink.modules.devices_coordinator.create_device"
@@ -248,6 +251,8 @@ class TestDevicesCoordinatorAsyncUpdateData:
             assert "cat-169004" in result
             mock_create.assert_called_once()
             mock_account.get_cat_summary_simple.assert_called_once()
+            cat_data = mock_create.call_args[0][0]
+            assert cat_data["health_status"] == {"statusDescription": "Good"}
 
 
 class TestDevicesCoordinatorUpdateHassEntities:

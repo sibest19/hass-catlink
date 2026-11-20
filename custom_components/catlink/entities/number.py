@@ -9,7 +9,6 @@ from .base import CatlinkEntity
 class CatlinkNumberEntity(CatlinkEntity, NumberEntity):
     """Number entity for CatLink."""
 
-    _entity_domain = "number"
 
     def __init__(self, name, device: Device, option=None) -> None:
         """Initialize the entity."""
@@ -22,4 +21,5 @@ class CatlinkNumberEntity(CatlinkEntity, NumberEntity):
         """Update the current value."""
         if hasattr(self._device, self._name):
             setattr(self._device, self._name, int(value))
+            self._attr_native_value = int(value)
             self.async_write_ha_state()

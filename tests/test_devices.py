@@ -1,5 +1,6 @@
 """Tests for CatLink device classes."""
 
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 from custom_components.catlink.devices.base import Device
@@ -109,12 +110,19 @@ def sample_cat_data():
         "model": "STREET CAT",
         "gender": 3,
         "weight": 4.7,
+        "age": 9,
+        "health_status": {"statusDescription": "Good"},
+        "pet_info": {"birthdayString": "2017-04-28"},
+        # Shape of token/pet/data/chart/summarySimple, captured live.
         "summary_simple": {
-            "statusDescription": "Data collection in progress",
-            "toilet": {"times": 2, "weightAvg": 4.7, "peed": 1, "pood": 1},
-            "drink": {"times": 1},
-            "diet": {"times": 0, "intakes": "0"},
-            "sport": {"activeDuration": 12},
+            "drinkInfo": {"drinkCount": 3, "drinkTotalDuration": 0.0},
+            "toiletInfo": {
+                "stoolFrequency": 1.0,
+                "urinateFrequency": 2.0,
+                "toiletFrequency": 1.0,
+            },
+            "weightsInfo": {"currentWeight": 15.0, "weightUnitTip": "lb"},
+            "eatInfo": {"eatTotalAmount": 1.5, "weightUnitTip": "oz"},
         },
     }
 
@@ -199,6 +207,25 @@ class TestDeviceRegistry:
         assert isinstance(device, CatDevice)
         assert device.name == "Zulu"
 
+    def test_cat_values_come_from_app_fields(
+        self, mock_coordinator, sample_cat_data
+    ) -> None:
+        """Test each cat value is read from the field the app's cat page shows."""
+        device = create_device(sample_cat_data, mock_coordinator)
+        assert device.status == "Good"
+        assert device.weight == 15.0
+        assert device.toilet_times == 4
+        assert device.pee_times == 2
+        assert device.poo_times == 1
+        assert device.drink_times == 3
+        assert device.diet_intakes == 1.5
+        assert device.birthday == date(2017, 4, 28)
+        assert device.age_years == 9
+        assert device.gender_label == "female"
+        sensors = device.hass_sensor
+        assert sensors["weight"]["unit"] == "lb"
+        assert sensors["diet_intakes"]["unit"] == "oz"
+
     def test_create_unknown_type_falls_back_to_base(self, mock_coordinator) -> None:
         """Test unknown device type uses base Device class."""
         data = {
@@ -218,7 +245,6 @@ class TestDeviceRegistry:
         config = AdditionalDeviceConfig(
             mac="AA:BB:CC:DD:EE:FF",
             empty_weight=1.5,
-            max_samples_litter=12,
         )
         device = create_device(
             sample_device_data, mock_coordinator, additional_config=config
@@ -239,13 +265,9 @@ class TestLitterBox:
         assert modes["02"] == "time"
 
     def test_actions_property(self, mock_coordinator, sample_device_data) -> None:
-        """Test LitterBox actions."""
+        """Test LitterBox actions are the app's clean, empty and cancel commands."""
         device = LitterBox(sample_device_data, mock_coordinator)
-        actions = device.actions
-        assert "01" in actions
-        assert "00" in actions
-        assert "cleaning" in actions.values()
-        assert "pause" in actions.values()
+        assert device.actions == {"01": "cleaning", "02": "empty", "06": "cancel"}
 
     def test_box_full_levels(self, mock_coordinator, sample_device_data) -> None:
         """Test LitterBox box full sensitivity levels."""
@@ -298,12 +320,10 @@ class TestLitterBox:
     def test_last_sync_with_timestamp(
         self, mock_coordinator, sample_device_data
     ) -> None:
-        """Test LitterBox last_sync formats timestamp."""
+        """Test LitterBox last_sync is a UTC datetime, as the timestamp class needs."""
         device = LitterBox(sample_device_data, mock_coordinator)
         device.detail = {"lastHeartBeatTimestamp": 1700000000000}
-        result = device.last_sync
-        assert result is not None
-        assert "2023" in result or "2024" in result
+        assert device.last_sync == datetime(2023, 11, 14, 22, 13, 20, tzinfo=UTC)
 
     def test_last_sync_no_timestamp(self, mock_coordinator, sample_device_data) -> None:
         """Test LitterBox last_sync returns None when no timestamp."""
@@ -317,27 +337,17 @@ class TestLitterBox:
         """Test LitterBox garbage_tobe_status when no full error."""
         device = LitterBox(sample_device_data, mock_coordinator)
         device.detail = {"deviceErrorList": []}
-        assert device.garbage_tobe_status == "Normal"
+        assert device.garbage_tobe_status == "normal"
 
     def test_garbage_tobe_status_full(
         self, mock_coordinator, sample_device_data
     ) -> None:
-        """Test LitterBox garbage_tobe_status when garbage full."""
+        """Test the bin is full on the key the app's full icon follows."""
         device = LitterBox(sample_device_data, mock_coordinator)
+        device.detail = {"deviceErrorList": [{"errkey": "garbage_full_abnormal"}]}
+        assert device.garbage_tobe_status == "full"
         device.detail = {"deviceErrorList": [{"errkey": "garbage_tobe_full_abnormal"}]}
-        assert device.garbage_tobe_status == "Full"
-
-    def test_garbage_attrs(self, mock_coordinator, sample_device_data) -> None:
-        """Test LitterBox garbage_attrs maps garbageStatus."""
-        device = LitterBox(sample_device_data, mock_coordinator)
-        device.detail = {"garbageStatus": "00"}
-        assert device.garbage_attrs()["status"] == "Normal"
-
-        device.detail = {"garbageStatus": "02"}
-        assert device.garbage_attrs()["status"] == "Movement Started"
-
-        device.detail = {"garbageStatus": "03"}
-        assert device.garbage_attrs()["status"] == "Moving"
+        assert device.garbage_tobe_status == "almost_full"
 
     def test_error_attrs(self, mock_coordinator, sample_device_data) -> None:
         """Test LitterBox error_attrs returns deviceErrorList."""
@@ -453,19 +463,6 @@ class TestLitterBoxAsyncMethods:
         assert mock_coordinator.account.request.call_args[0][1]["cmd"] == "01"
 
     @pytest.mark.usefixtures("enable_custom_integrations")
-    async def test_select_action_garbage_bag_calls_change_bag(
-        self, mock_coordinator, sample_device_data
-    ) -> None:
-        """Test select_action with Garbage Bag delegates to changeBag."""
-        device = LitterBox(sample_device_data, mock_coordinator)
-        device.changeBag = AsyncMock(return_value=True)
-
-        result = await device.select_action("Change Garbage Bag")
-
-        assert result is True
-        device.changeBag.assert_called_once()
-
-    @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_change_bag_success(
         self, mock_coordinator, sample_device_data
     ) -> None:
@@ -478,7 +475,7 @@ class TestLitterBoxAsyncMethods:
 
         assert result is not False
         mock_coordinator.account.request.assert_called_once()
-        assert mock_coordinator.account.request.call_args[0][1]["enable"] == "1"
+        assert mock_coordinator.account.request.call_args[0][1]["enable"] is True
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_select_box_full_sensitivity_success(
@@ -508,7 +505,7 @@ class TestLitterBoxAsyncMethods:
     async def test_reset_litter_success(
         self, mock_coordinator, sample_device_data
     ) -> None:
-        """Test async_reset_litter calls consumableReset with CAT_LITTER."""
+        """Test async_reset_litter uses the app's 599 litter reset."""
         device = LitterBox(sample_device_data, mock_coordinator)
         mock_coordinator.account.request = AsyncMock(return_value={"returnCode": 0})
         device.update_device_detail = AsyncMock(return_value={})
@@ -518,16 +515,14 @@ class TestLitterBoxAsyncMethods:
         assert result is not False
         mock_coordinator.account.request.assert_called_once()
         call_args = mock_coordinator.account.request.call_args
-        assert call_args[0][0] == "token/device/union/consumableReset"
-        assert call_args[0][1]["consumablesType"] == "CAT_LITTER"
-        assert call_args[0][1]["deviceId"] == "dev123"
-        assert call_args[0][1]["deviceType"] == "LITTER_BOX_599"
+        assert call_args[0][0] == "token/litterbox/litter/time/reset"
+        assert call_args[0][1] == {"deviceId": "dev123"}
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_reset_deodorant_success(
         self, mock_coordinator, sample_device_data
     ) -> None:
-        """Test async_reset_deodorant calls consumableReset with DEODORIZER_02."""
+        """Test async_reset_deodorant uses the app's 599 deodorant reset."""
         device = LitterBox(sample_device_data, mock_coordinator)
         mock_coordinator.account.request = AsyncMock(return_value={"returnCode": 0})
         device.update_device_detail = AsyncMock(return_value={})
@@ -536,7 +531,8 @@ class TestLitterBoxAsyncMethods:
 
         assert result is not False
         call_args = mock_coordinator.account.request.call_args
-        assert call_args[0][1]["consumablesType"] == "DEODORIZER_02"
+        assert call_args[0][0] == "token/litterbox/deodorant/reset"
+        assert call_args[0][1] == {"deviceId": "dev123"}
 
     def test_hass_button_structure(self, mock_coordinator, sample_device_data) -> None:
         """Test LitterBox hass_button contains reset_litter and reset_deodorant."""
@@ -637,6 +633,65 @@ class TestC08DeviceAsyncMethods:
         assert call_args[0][1]["behavior"] == "CLEAN"
 
     @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_values_come_from_app_fields(
+        self, mock_coordinator, sample_c08_data
+    ) -> None:
+        """Test C08 values are read from the fields the app's C08 screen shows."""
+        device = C08Device(sample_c08_data, mock_coordinator)
+        device.detail = {
+            "workStatus": "00",
+            "finalStatus": "PAVE_RUN",
+            "currentMessage": "unused",
+            "deviceErrorList": [{"errkey": "X", "errDesc": "Waste bin full"}],
+            "timezoneId": "Europe/Amsterdam",
+        }
+        assert device.state == "leveling"
+        assert device.action == "pave_start"
+        assert device.error == "Waste bin full"
+
+        device.detail = {"finalStatus": "CLEAN"}
+        assert device.state == "idle"
+        assert device.action is None
+        assert device.error == "Normal Operation"
+
+        responses = {
+            "token/litterbox/todayCleanTimes": {"data": {"cleanTimes": 2}},
+            "token/litterbox/petTodayCounts": {"data": {"toiletCount": "3"}},
+        }
+        mock_coordinator.account.request = AsyncMock(
+            side_effect=lambda api, pms=None, *a, **k: responses.get(api, {})
+        )
+        await device.async_refresh_c08_extras()
+        assert device.total_clean_time == 2
+        assert device.stats_times == 3
+
+    @pytest.mark.parametrize(
+        ("method", "api", "params"),
+        [
+            ("async_set_quiet_mode", "token/litterbox/quietMode", {"enable": True}),
+            ("async_set_child_lock", "token/litterbox/keyLock", {"lockStatus": "01"}),
+            (
+                "async_set_keypad_tone",
+                "token/litterbox/keypadTone",
+                {"panelTone": "01", "kind": "00"},
+            ),
+        ],
+    )
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_switch_payload_matches_app(
+        self, mock_coordinator, sample_c08_data, method, api, params
+    ) -> None:
+        """Test switches send the endpoint and values the official app sends."""
+        device = C08Device(sample_c08_data, mock_coordinator)
+        mock_coordinator.account.request = AsyncMock(return_value={"returnCode": 0})
+        device.update_device_detail = AsyncMock(return_value={})
+
+        assert await getattr(device, method)(True) is True
+        call_args = mock_coordinator.account.request.call_args
+        assert call_args[0][0] == api
+        assert call_args[0][1] == {**params, "deviceId": "c08-1"}
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_select_litter_type(
         self, mock_coordinator, sample_c08_data
     ) -> None:
@@ -670,9 +725,9 @@ class TestFeederDevice:
         assert device.weight == 250
 
     def test_feeder_error(self, mock_coordinator, sample_feeder_data) -> None:
-        """Test FeederDevice error from detail."""
+        """Test FeederDevice error is the banner text the app shows."""
         device = FeederDevice(sample_feeder_data, mock_coordinator)
-        device.detail = {"error": "Low food level"}
+        device.detail = {"error": "unused", "currentErrorMessage": "Low food level"}
         assert device.error == "Low food level"
 
     def test_feeder_error_attrs(self, mock_coordinator, sample_feeder_data) -> None:
@@ -834,6 +889,26 @@ class TestScooperProUltraDevice:
         """Test ScooperProUltraDevice name appends limited support suffix."""
         device = ScooperProUltraDevice(sample_pro_ultra_data, mock_coordinator)
         assert device.name.endswith(" (Limited Support)")
+        assert device.hass_select == {}
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_update_device_detail_keeps_raw_on_null_field(
+        self, mock_coordinator, sample_pro_ultra_data
+    ) -> None:
+        """Test a null field that fails validation does not blank the device."""
+        device = ScooperProUltraDevice(sample_pro_ultra_data, mock_coordinator)
+        mock_coordinator.account.request = AsyncMock(
+            return_value={
+                "data": {
+                    "deviceInfo": {"deodorantCountdown": None, "litterCountdown": 9}
+                }
+            }
+        )
+
+        await device.update_device_detail()
+
+        assert device.litter_remaining_days == 9
+        assert device.deodorant_countdown is None
 
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_update_device_detail_brief_info(
@@ -996,13 +1071,38 @@ class TestPureProDevice:
         assert modes["INTERMITTENT_SPRING"] == "eco"
         assert modes["INDUCTION_SPRING"] == "smart"
 
+    def test_purepro_values_come_from_app_fields(
+        self, mock_coordinator, sample_purepro_data
+    ) -> None:
+        """Test each fountain value is read from the field the app shows."""
+        device = PureProDevice(sample_purepro_data, mock_coordinator)
+        device.detail = {
+            "runMode": "INTERMITTENT_SPRING",
+            "workModel": "00",
+            "waterLevelNum": 2,
+            "waterLevelStrDescription": "Water level normal",
+            "filterElementTimeCountdown": 12,
+            "temperatureOfHeater": "24.5",
+            "waterTemperature": 99,
+            "pureLightStatus": "OPEN",
+        }
+        assert device.mode == "eco"
+        assert device.water_level == "Water level normal"
+        assert device.filter_life == 12
+        assert device.temperature == 24.5
+        assert device.light_active is True
+        assert set(device.hass_binary_sensor) == {"online", "light_active"}
+
+        device.detail = {"temperatureOfHeater": ""}
+        assert device.temperature is None
+
     def test_purepro_hass_sensor(self, mock_coordinator, sample_purepro_data) -> None:
         """Test PureProDevice hass_sensor structure."""
         device = PureProDevice(sample_purepro_data, mock_coordinator)
         sensor = device.hass_sensor
         assert "state" in sensor
         assert "last_log" in sensor
-        assert "online" in sensor
+        assert "online" in device.hass_binary_sensor
 
 
 class TestPureProDeviceAsyncMethods:
