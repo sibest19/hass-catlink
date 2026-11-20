@@ -5,6 +5,7 @@ import base64
 import datetime
 import hashlib
 import time
+from urllib.parse import urlparse
 
 from aiohttp import ClientError
 from cryptography.hazmat.backends import default_backend
@@ -33,6 +34,20 @@ from ..const import (
     SIGN_KEY,
 )
 from ..helpers import Helper
+
+
+# shortcut: not homeassistant.components.diagnostics.async_redact_data, which
+# hassfest rejects until this integration has a diagnostics platform.
+def _redact_tokens(data):
+    """Return the API reply with every token value hidden, for logging."""
+    if isinstance(data, dict):
+        return {
+            k: "**REDACTED**" if k == CONF_TOKEN else _redact_tokens(v)
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [_redact_tokens(v) for v in data]
+    return data
 
 
 class Account:
@@ -111,7 +126,14 @@ class Account:
 
     def api_url(self, api="") -> str:
         """Return the full url of the api."""
-        if api[:6] == "https:" or api[:5] == "http:":
+        url = urlparse(api)
+        if url.scheme:
+            # The token goes with every request: only CatLink servers get it.
+            host = url.hostname or ""
+            if url.scheme != "https" or not (
+                host == "catlinks.cn" or host.endswith(".catlinks.cn")
+            ):
+                raise ValueError(f"Not a CatLink API URL: {api}")
             return api
         bas = self.get_config(CONF_API_BASE) or DEFAULT_API_BASE
         return f"{bas.rstrip('/')}/{api.lstrip('/')}"
@@ -151,8 +173,23 @@ class Account:
         try:
             req = await self.http.request(http_method, url, **kws)
             result = await req.json() or {}
-            _LOGGER.debug("API response %s %s: %s", method, api, result)
-            
+            if api in (LOGIN_API_EMAIL, LOGIN_API_PHONE):
+                # The login reply carries the session token and account details.
+                _LOGGER.debug(
+                    "API response %s %s: returnCode=%s msg=%s",
+                    method,
+                    api,
+                    result.get("returnCode"),
+                    result.get("msg"),
+                )
+            else:
+                _LOGGER.debug(
+                    "API response %s %s: %s",
+                    method,
+                    api,
+                    _redact_tokens(result),
+                )
+
             # Handle token expiration (1002: Illegal token)
             if result.get("returnCode") == 1002 and not retried:
                 _LOGGER.info(
@@ -162,7 +199,7 @@ class Account:
                     return await self.request(
                         api, unsigned, method, _retried=True, **kwargs
                     )
-            
+
             return result
         except (ClientError, TimeoutError) as exc:  # noqa: UP041
             _LOGGER.error("Request api failed: %s", [method, url, exc])

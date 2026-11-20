@@ -126,15 +126,23 @@ class TestAccountApiUrl:
         url = account.api_url("token/device/list")
         assert url == f"{DEFAULT_API_BASE.rstrip('/')}/token/device/list"
 
-    def test_api_url_absolute_https(self, account) -> None:
-        """Test api_url returns full URL as-is for https."""
-        url = account.api_url("https://other.api/endpoint")
-        assert url == "https://other.api/endpoint"
+    def test_api_url_absolute_catlink_https(self, account) -> None:
+        """Test api_url returns an https CatLink URL as-is."""
+        url = "https://app-usa.catlinks.cn/api/token/device/info"
+        assert account.api_url(url) == url
 
-    def test_api_url_absolute_http(self, account) -> None:
-        """Test api_url returns full URL as-is for http."""
-        url = account.api_url("http://other.api/endpoint")
-        assert url == "http://other.api/endpoint"
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://other.api/endpoint",
+            "http://app.catlinks.cn/api/endpoint",
+            "https://catlinks.cn.evil.com/endpoint",
+        ],
+    )
+    def test_api_url_rejects_foreign_url(self, account, url) -> None:
+        """Test api_url refuses URLs the token must not be sent to."""
+        with pytest.raises(ValueError):
+            account.api_url(url)
 
     def test_api_url_custom_base(self, hass, mock_http_session) -> None:
         """Test api_url uses custom API base from config."""
@@ -309,6 +317,30 @@ class TestAccountRequest:
         assert retry[CONF_TOKEN] == "new-token"
         unsigned = {k: v for k, v in retry.items() if k != "sign"}
         assert retry["sign"] == account.params_sign(unsigned)
+
+
+class TestAccountRequestLogging:
+    """Tests that API replies are logged without secrets."""
+
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_tokens_are_not_logged(self, account, caplog) -> None:
+        """Test login replies log only their code and other replies redact tokens."""
+
+        async def mock_request(method, url, **kwargs):
+            resp = MagicMock()
+            resp.json = AsyncMock(
+                return_value={"returnCode": 0, "data": {"token": "secret-tok"}}
+            )
+            return resp
+
+        account.http.request = mock_request
+        caplog.set_level("DEBUG", logger="custom_components.catlink")
+        await account.request(LOGIN_API_EMAIL, {}, "POST")
+        await account.request("token/device/info", {"deviceId": "1"})
+
+        assert "secret-tok" not in caplog.text
+        assert "returnCode=0" in caplog.text
+        assert "**REDACTED**" in caplog.text
 
 
 class TestAccountAsyncLogin:
