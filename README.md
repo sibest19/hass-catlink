@@ -20,6 +20,7 @@ switch over without losing your entities. See [Migrating from hasscc/catlink](#m
 ## Contents
 
 - [Device support](#device-support)
+- [Help add or test your device](#help-add-or-test-your-device)
 - [Before you start: use a second CatLink account](#before-you-start-use-a-second-catlink-account)
 - [Installation](#installation)
 - [Configuration](#configuration)
@@ -42,8 +43,11 @@ switch over without losing your entities. See [Migrating from hasscc/catlink](#m
 > - **All other devices**: the code was matched against the official app's code, but **nobody has
 >   tested it on real hardware yet**. It may show wrong values or not work at all.
 >
-> If you own one of the untested devices, please tell us how it works, good or bad, using the
-> [issue templates](https://github.com/sibest19/hass-catlink/issues/new/choose).
+> If you own one of the untested devices, please tell us how it works, good or bad. See
+> [Help add or test your device](#help-add-or-test-your-device).
+>
+> Devices marked **beta** are only in a pre-release, waiting for test reports. You get them only
+> if you turn on pre-releases (see below).
 
 | Device | API `deviceType` | Status |
 | --- | --- | --- |
@@ -55,7 +59,40 @@ switch over without losing your entities. See [Migrating from hasscc/catlink](#m
 | Feeder | `FEEDER` | Matched to the app's code, not tested on hardware |
 | PurePro water fountain | `PUREPRO` | Matched to the app's code, not tested on hardware |
 
-Other device types show up as "Limited support" during setup. They get almost no entities.
+Other device types show up as "Limited support" during setup. They get almost no entities. If you
+add one anyway, Home Assistant shows a repair notice under **Settings → System → Repairs** asking for help to add
+them.
+
+## Help add or test your device
+
+To add a device, or to confirm that an untested one works, we need four things from you:
+
+1. **The model** as named in the CatLink app (and its `deviceType`, if you know it).
+2. **The diagnostics file.** Go to **Settings → Devices & services → CatLink**, open the menu (⋮)
+   and choose **Download diagnostics**. It contains what the CatLink API returns for your devices.
+   Your email, phone number, password, tokens, device IDs, serial numbers, MAC addresses and Wi-Fi
+   name are removed. Open it and check before you share it.
+3. **Screenshots** of the device page in the CatLink app next to the same device in Home Assistant.
+4. **What you tested**: which readings match the app, and which controls made the device react.
+
+Send them with the [Device support / test report](https://github.com/sibest19/hass-catlink/issues/new?template=new_device.yml)
+form: drag the diagnostics file and the screenshots into the form. For an unsupported device, the
+**Learn more** link in the repair notice opens the form already filled in.
+
+### Try a beta
+
+New devices are first released as a beta (a GitHub pre-release such as `3.1.0b1`). You only get
+betas if you turn them on:
+
+- **Marketplace** (Home Assistant 2026.11 and later): open **CatLink** in the Marketplace and turn
+  on its **Pre-release** switch.
+- **HACS** (before 2026.11): HACS creates a **Pre-release** switch for each repository, disabled by
+  default. Go to **Settings → Devices & services → HACS**, open the CatLink repository, enable the
+  switch and turn it on.
+
+The beta then shows up as an update. Turn the switch off to get only stable releases again; to
+leave a beta right away, pick the latest stable version from the CatLink menu (⋮ →
+**Redownload**). Please report back with the same form, even if everything works.
 
 ## Before you start: use a second CatLink account
 
@@ -312,7 +349,8 @@ your config directory.
 ### Report a problem
 
 Open an issue using the [issue templates](https://github.com/sibest19/hass-catlink/issues/new/choose).
-Include your device model, Home Assistant version, integration version and the debug log.
+Include your device model, Home Assistant version, integration version, the debug log and, if
+you can, the [diagnostics file](#help-add-or-test-your-device).
 
 > [!CAUTION]
 > Before you post a log, remove your **email address, phone number, tokens and device IDs/MAC

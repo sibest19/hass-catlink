@@ -4,6 +4,13 @@ All notable changes to this project are listed here.
 
 ## Unreleased
 
+- **Download diagnostics** (Settings → Devices & services → CatLink → ⋮) now gives a redacted file
+  with what the CatLink API returns for each device, to attach to device support issues.
+- A repair notice appears for added devices whose type is not supported yet, with a link to a
+  pre-filled device support form.
+- New devices are released first as betas (GitHub pre-releases). See "Help add or test your
+  device" in the README to opt in.
+
 ## 3.0.0 - 2026-11-20
 
 First release from [sibest19/hass-catlink](https://github.com/sibest19/hass-catlink), the maintained
