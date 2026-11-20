@@ -168,8 +168,9 @@ You can change the device selection and refresh interval later: **Settings → D
 CatLink → Configure**. The integration reloads when you save. Devices shared with the account after
 setup are picked up automatically, unless you have narrowed the selection down.
 
-If you change the CatLink password, the integration can no longer sign in, and Home Assistant does
-not yet ask you for the new one. Delete the CatLink entry and add it again with the new password.
+If CatLink refuses the saved password (for example after you change it), Home Assistant shows
+**Re-authentication required** under **Settings → Devices & services**. Click it and sign in again;
+your devices and entities stay as they are.
 
 ## Entities
 

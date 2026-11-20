@@ -105,11 +105,30 @@ async def test_setup_retries_when_devices_cannot_be_listed(
     mock_account.return_value.hass = hass
     mock_account.return_value.update_interval = timedelta(minutes=1)
     mock_account.return_value.get_devices = AsyncMock(return_value=None)
+    mock_account.return_value.login_rejected = False
     await async_setup(hass, {})
     mock_config_entry.add_to_hass(hass)
 
     assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
     assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_setup_asks_for_password_when_login_is_rejected(
+    hass: HomeAssistant, mock_config_entry, mock_account
+) -> None:
+    """Test CatLink refusing the login starts Home Assistant's re-auth flow."""
+    mock_account.return_value.hass = hass
+    mock_account.return_value.update_interval = timedelta(minutes=1)
+    mock_account.return_value.get_devices = AsyncMock(return_value=None)
+    mock_account.return_value.login_rejected = True
+    await async_setup(hass, {})
+    mock_config_entry.add_to_hass(hass)
+
+    assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    assert mock_config_entry.state is ConfigEntryState.SETUP_ERROR
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert [f["context"]["source"] for f in flows] == ["reauth"]
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

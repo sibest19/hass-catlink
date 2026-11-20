@@ -40,6 +40,10 @@ from ..helpers import Helper
 class Account:
     """Account class for CatLink integration."""
 
+    # CatLink answered a login and refused it: the stored credentials are
+    # wrong, as opposed to the server being unreachable.
+    login_rejected = False
+
     def __init__(self, hass: HomeAssistant, config: dict) -> None:
         """Initialize the account."""
         self._config = config
@@ -216,7 +220,8 @@ class Account:
         )
         # _retried: a 1002 here must not trigger another login, recursively.
         rsp = await self.request(api, pms, "POST", _retried=True)
-        tok = rsp.get("data", {}).get("token")
+        tok = (rsp.get("data") or {}).get("token")
+        self.login_rejected = bool(rsp) and not tok
         if not tok:
             # Never log pms here: it carries the encrypted password.
             _LOGGER.error("Login %s failed: %s", self.identifier, rsp)

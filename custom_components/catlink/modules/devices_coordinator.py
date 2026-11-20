@@ -3,6 +3,7 @@
 import asyncio
 
 from homeassistant.const import CONF_DEVICES
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -45,6 +46,9 @@ class DevicesCoordinator(DataUpdateCoordinator):
         """Update data via API."""
         dls = await self.account.get_devices()
         if dls is None:
+            if self.account.login_rejected:
+                # Home Assistant then asks the user for the password again.
+                raise ConfigEntryAuthFailed("CatLink rejected the stored credentials")
             raise UpdateFailed("Could not list the CatLink devices")
         for dat in dls:
             did = dat.get("id")

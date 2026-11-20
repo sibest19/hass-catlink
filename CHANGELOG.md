@@ -122,6 +122,8 @@ types were matched against the official app's code but are not tested on hardwar
   with what the CatLink API returns for each device, to attach to device support issues.
 - A repair notice appears when the account has a device type that is not supported yet, with a
   link to a pre-filled device support form.
+- When CatLink refuses the saved password, Home Assistant asks for it again (re-authentication)
+  instead of retrying forever.
 - New devices are released first as betas (GitHub pre-releases). See "Help add or test your
   device" in the README to opt in.
 

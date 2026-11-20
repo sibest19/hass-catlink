@@ -394,6 +394,24 @@ class TestAccountAsyncLogin:
             assert result is False
             assert account.token == ""
 
+    @pytest.mark.parametrize(
+        ("reply", "rejected"),
+        [
+            ({"returnCode": 1001, "msg": "Wrong password", "data": None}, True),
+            ({}, False),  # no answer: network error, not the credentials
+        ],
+    )
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_login_rejected_only_when_catlink_answers(
+        self, account, reply, rejected
+    ) -> None:
+        """Test a refused login is told apart from an unreachable server."""
+        with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = reply
+            assert await account.async_login() is False
+
+        assert account.login_rejected is rejected
+
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_login_by_phone_uses_phone_endpoint(self, account) -> None:
         """Test a phone account posts mobile + internationalCode."""
