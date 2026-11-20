@@ -74,9 +74,14 @@ class Account:
     def password(self) -> str:
         """Return the password of the account."""
         pwd = self._config.get(CONF_PASSWORD)
-        if len(pwd) <= 16:
-            pwd = self.encrypt_password(pwd)
-        return pwd
+        # Keep a value that is already the RSA output: 1024-bit key, 128 bytes.
+        if len(pwd) == 172:
+            try:
+                if len(base64.b64decode(pwd, validate=True)) == 128:
+                    return pwd
+            except ValueError:
+                pass
+        return self.encrypt_password(pwd)
 
     @property
     def uid(self):

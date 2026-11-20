@@ -206,15 +206,22 @@ class TestAccountPassword:
         assert pwd != "short"
         assert len(pwd) > 16
 
-    def test_long_password_unchanged(self, hass, mock_http_session) -> None:
-        """Test password > 16 chars is returned as-is (already encrypted)."""
+    def test_long_password_gets_encrypted(self, hass, mock_http_session) -> None:
+        """Test a plain password longer than 16 chars is encrypted too (#60)."""
         config = {
             CONF_PHONE_IAC: "86",
             CONF_PHONE: "13812345678",
             CONF_PASSWORD: "a" * 20,
         }
         acc = Account(hass, config)
-        assert acc.password == "a" * 20
+        assert len(acc.password) == 172
+
+    def test_encrypted_password_unchanged(self, hass, mock_http_session) -> None:
+        """Test a stored value that is already the RSA output is sent as-is."""
+        encrypted = Account.encrypt_password("secret")
+        config = {CONF_EMAIL: "user@example.com", CONF_PASSWORD: encrypted}
+        acc = Account(hass, config)
+        assert acc.password == encrypted
 
 
 class TestAccountRequest:
