@@ -1,19 +1,13 @@
-name: Support for a new or untested device
-description: Ask for support for a CatLink device the integration does not handle, or has not been verified on.
+name: Device support / test report
+description: Ask for a new CatLink device, or tell us how an untested device (or a beta) works for you.
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Only the SCOOPER SE 2 (C08) has been verified on real hardware. Supporting another device needs to know what the CatLink API returns for it.
+        Only the SCOOPER SE 2 (`C08`) and cat profiles are verified on real hardware. A report saying "everything works" is as useful as a bug report.
 
-        Enable debug logging by adding this to `configuration.yaml` and restarting Home Assistant:
-
-        ```yaml
-        logger:
-          logs:
-            custom_components.catlink: debug
-        ```
+        We need four things: the model, the diagnostics file, screenshots, and what you tested.
 
   - type: input
     id: model
@@ -28,34 +22,84 @@ body:
     id: device-type
     attributes:
       label: deviceType
-      description: The `deviceType` value for this device in the debug log.
+      description: Shown in the repair notice, or as `deviceType` in the diagnostics file. Leave empty if you do not know it.
       placeholder: "VISUAL_PRO_ULTRA"
     validations:
-      required: true
+      required: false
 
   - type: input
     id: integration-version
     attributes:
       label: Integration version
+      description: Marketplace / HACS → CatLink. Say if it is a beta (for example `3.1.0b1`).
       placeholder: "3.0.0"
     validations:
       required: true
 
-  - type: textarea
-    id: current-behaviour
+  - type: dropdown
+    id: region
     attributes:
-      label: What works and what does not
-      description: Which entities appear, which are missing or wrong, and what the CatLink app shows instead.
+      label: Account region
+      options:
+        - Global
+        - China
+        - USA
+        - Singapore
+        - Auto
     validations:
       required: true
 
   - type: textarea
-    id: raw-response
+    id: diagnostics
     attributes:
-      label: Raw API response
+      label: Diagnostics file
       description: |
-        The `API response ...` debug log lines for this device (its entry in the device list and its device info).
-        **Redact your email, phone number, tokens, device IDs, serial numbers and MAC addresses before posting.**
-      render: json
+        **Settings → Devices & services → CatLink → ⋮ → Download diagnostics**, then drag the `.json` file into this box.
+        It contains the raw API data of every device, with email, phone, password, tokens, device IDs, serial numbers and MAC addresses already removed. Open it and check before you upload.
     validations:
       required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: The device page in the CatLink app next to the device page in Home Assistant (Settings → Devices & services → CatLink → your device). Drag the images here.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What works
+      description: Tick what you checked and found correct. Explain anything else below.
+      options:
+        - label: The device appears in Home Assistant with the right name and model
+        - label: Every reading matches the CatLink app
+        - label: Every control (switch, select, button, number) I tried made the device react as in the app
+        - label: Nothing in Settings → System → Logs mentions catlink
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Which values are wrong or missing (and what the app shows instead), which controls you tried and what happened, anything the app shows that Home Assistant does not.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Debug logs (only if diagnostics cannot be downloaded)
+      description: |
+        Add this to `configuration.yaml`, restart Home Assistant, and paste the `API response ...` lines for this device:
+
+        ```yaml
+        logger:
+          logs:
+            custom_components.catlink: debug
+        ```
+
+        **Redact your email, phone number, tokens, device IDs, serial numbers and MAC addresses before posting.**
+      render: text
+    validations:
+      required: false
