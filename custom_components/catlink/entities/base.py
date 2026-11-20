@@ -36,8 +36,8 @@ class CatlinkEntity(CoordinatorEntity):
         # device and entity names.
         #
         # The entity key doubles as the translation key, so names, state
-        # translations and icons live under entity.<domain>.<key> in strings.json
-        # and icons.json. An option "translation_key" of None leaves the entity
+        # translations and icons live under entity.<domain>.<key> in
+        # translations/*.json and icons.json. An option "translation_key" of None leaves the entity
         # named after its device class.
         self._attr_translation_key = self._option.get("translation_key", slugify(name))
         self._attr_device_class = self._option.get("class")

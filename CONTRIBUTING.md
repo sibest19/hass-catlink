@@ -36,12 +36,12 @@ example with `api: token/device/info` and `params: {deviceId: <id>}`. Redact it 
 
 ## Development setup
 
-You need Python 3.13 and git.
+You need Python 3.14 (Home Assistant 2026.3 and later need it) and git.
 
 ```shell
 git clone https://github.com/<your-user>/hass-catlink.git
 cd hass-catlink
-python3.13 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements_test.txt pytest-timeout
 ```
@@ -109,7 +109,6 @@ custom_components/catlink/
   devices/registry.py    deviceType -> device class
   entities/              the generic Home Assistant entity classes
   translations/*.json    entity names and states (en.json, it.json)
-  strings.json           source copy of en.json
   icons.json             entity icons
 ```
 
@@ -152,11 +151,11 @@ Options in use: `class`, `unit`, `state_class`, `entity_category`, `enabled_defa
   `entity.<platform>.<key>.name`, and the icon in `icons.json`. Set `"translation_key": None` only
   when the entity should be named after its device class (for example Temperature, Weight,
   Connectivity).
-- **Translations.** Add every new string to `strings.json` and `translations/en.json`, and keep the
-  two identical. Custom integrations do not read `strings.json` at runtime: only
-  `translations/*.json` is loaded. Every language file needs a name for every entity key and enum
-  state; `test_every_entity_key_is_translated` fails otherwise. If you cannot translate, copy the
-  English text into the other files and say so in the PR.
+- **Translations.** Custom integrations ship finished `translations/*.json` files, and there is no
+  `strings.json`: `translations/en.json` is the source, and hassfest validates it. Every language
+  file needs a name for every entity key and enum state; `test_every_entity_key_is_translated`
+  fails otherwise. If you cannot translate, copy the English text into the other files and say so
+  in the PR.
 - **Enum states are lowercase keys** (`clean_start`, `almost_full`), translated under
   `entity.<platform>.<key>.state`. Never use display text as a state.
 - **Use Home Assistant constants**: device classes, `UnitOf...` units, state classes and entity
@@ -179,7 +178,7 @@ Options in use: `class`, `unit`, `state_class`, `entity_category`, `enabled_defa
 3. Register the class in `DEVICE_TYPES` in `devices/registry.py`, and add the `deviceType` to
    `SUPPORTED_DEVICE_TYPES` in `const.py`. Both lists must match, or the device is shown as
    "Limited support" and not pre-selected.
-4. Add names and states to `strings.json` and every file in `translations/`, and icons to `icons.json`.
+4. Add names and states to every file in `translations/`, and icons to `icons.json`.
 5. Add tests in `tests/test_devices.py` using the real (redacted) API responses.
 6. Add the device to the support table and the entity tables in `README.md`, marked as not tested
    on hardware unless you tested it yourself.
@@ -193,7 +192,7 @@ Checklist:
 - [ ] `pytest tests/ --timeout=10` passes.
 - [ ] `ruff check` and `ruff format` report nothing new in the files you changed.
 - [ ] Values and commands match the official app; the PR says how you checked.
-- [ ] New strings are in `strings.json` and every `translations/*.json`; icons are in `icons.json`.
+- [ ] New strings are in every `translations/*.json`; icons are in `icons.json`.
 - [ ] Removed entities are in `REMOVED_ENTITIES`.
 - [ ] `CHANGELOG.md` has an entry under **Unreleased**, written for users.
 - [ ] `README.md` is updated if entities, setup or support status changed.
@@ -205,7 +204,8 @@ For maintainers:
 
 1. Move the **Unreleased** entries in `CHANGELOG.md` under a new version heading with the date.
 2. Set `version` in `custom_components/catlink/manifest.json` to the same version.
-3. Commit, then create a GitHub release whose tag is exactly that version (for example `3.0.0`).
+3. Commit, then create a GitHub release whose tag is `v` plus that version (for example `v3.0.0`).
+   The release workflow fails if they differ.
    HACS and the Marketplace install from releases, so the tag and the manifest version must match.
 4. Paste the changelog section into the release notes.
 

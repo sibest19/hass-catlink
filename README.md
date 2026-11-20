@@ -5,8 +5,8 @@ Monitor and control CatLink litter boxes, feeders, water fountains and cat profi
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
 [![GitHub release](https://img.shields.io/github/v/release/sibest19/hass-catlink)](https://github.com/sibest19/hass-catlink/releases)
 [![License](https://img.shields.io/github/license/sibest19/hass-catlink)](LICENSE)
-[![hassfest](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/hassfest.yaml?branch=main&label=hassfest)](https://github.com/sibest19/hass-catlink/actions/workflows/hassfest.yaml)
-[![HACS validation](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/hacs.yaml?branch=main&label=HACS%20validation)](https://github.com/sibest19/hass-catlink/actions/workflows/hacs.yaml)
+[![hassfest](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/validate-hassfest.yml?branch=main&label=hassfest)](https://github.com/sibest19/hass-catlink/actions/workflows/validate-hassfest.yml)
+[![HACS validation](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/validate-hacs.yml?branch=main&label=HACS%20validation)](https://github.com/sibest19/hass-catlink/actions/workflows/validate-hacs.yml)
 [![Tests](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/tests.yaml?branch=main&label=tests)](https://github.com/sibest19/hass-catlink/actions/workflows/tests.yaml)
 
 > [!NOTE]
@@ -131,7 +131,8 @@ You can change the device selection and refresh interval later: **Settings → D
 CatLink → Configure**. The integration reloads when you save. Devices shared with the account after
 setup are picked up automatically, unless you have narrowed the selection down.
 
-If the password changes, Home Assistant asks you to sign in again (re-authentication).
+If you change the CatLink password, the integration can no longer sign in, and Home Assistant does
+not yet ask you for the new one. Delete the CatLink entry and add it again with the new password.
 
 ## Entities
 
