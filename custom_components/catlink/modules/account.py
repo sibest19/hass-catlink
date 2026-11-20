@@ -268,17 +268,17 @@ class Account:
             await self.async_login()
         return old
 
-    async def get_devices(self) -> list:
-        """Get the devices of the account."""
+    async def get_devices(self) -> list | None:
+        """Get the devices of the account, or None when they cannot be listed."""
         if not self.token:
             if not await self.async_login():
-                return []
+                return None
         api = "token/device/union/list/sorted"
         rsp = await self.request(api, {"type": "NONE"})
-        dls = rsp.get("data", {}).get(CONF_DEVICES) or []
-        if not dls:
+        if rsp.get("returnCode") != 0:
             _LOGGER.warning("Got devices for %s failed: %s", self.identifier, rsp)
-        return dls
+            return None
+        return (rsp.get("data") or {}).get(CONF_DEVICES) or []
 
     async def get_cats(self, timezone_id: str | None = None) -> list:
         """Get the cats of the account."""

@@ -40,7 +40,7 @@ def mock_coordinator():
     with patch("custom_components.catlink.DevicesCoordinator") as mock:
         instance = mock.return_value
         instance.name = f"{DOMAIN}-86-13812345678-devices"
-        instance.async_refresh = AsyncMock()
+        instance.async_config_entry_first_refresh = AsyncMock()
         instance.data = {}
         yield mock
 

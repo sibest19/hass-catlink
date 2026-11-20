@@ -9,6 +9,7 @@ from custom_components.catlink.const import (
     CONF_PHONE_IAC,
     CONF_UPDATE_INTERVAL,
     DOMAIN,
+    ERROR_CANNOT_CONNECT,
     ERROR_INVALID_AUTH,
 )
 import pytest
@@ -457,3 +458,32 @@ async def test_options_flow(
     assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_DEVICE_IDS] == ["dev1", "dev2"]
     assert result["data"][CONF_UPDATE_INTERVAL] == 300
+
+
+async def test_step_cannot_list_devices_shows_error(
+    hass: HomeAssistant, enable_custom_integrations, mock_account
+) -> None:
+    """Test a failed device listing shows cannot_connect instead of an empty entry."""
+    mock_account.return_value.get_devices = AsyncMock(return_value=None)
+
+    result = await _start(hass, "phone")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], PHONE_INPUT
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["errors"]["base"] == ERROR_CANNOT_CONNECT
+
+
+async def test_options_flow_cannot_list_devices_aborts(
+    hass: HomeAssistant, enable_custom_integrations, mock_account
+) -> None:
+    """Test the options flow aborts instead of offering an empty device list."""
+    mock_account.return_value.get_devices = AsyncMock(return_value=None)
+    entry = MockConfigEntry(domain=DOMAIN, data={"password": "testpass"})
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert result["type"] == data_entry_flow.FlowResultType.ABORT
+    assert result["reason"] == ERROR_CANNOT_CONNECT

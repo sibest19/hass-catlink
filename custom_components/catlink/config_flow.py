@@ -39,6 +39,7 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
+    ERROR_CANNOT_CONNECT,
     ERROR_INVALID_AUTH,
     REGION_AUTO,
     SUPPORTED_DEVICE_TYPES,
@@ -141,9 +142,9 @@ class CatlinkConfigFlow(ConfigFlow, domain=DOMAIN):
                 region=user_input.get(CONF_REGION, REGION_AUTO),
                 title=email,
             )
-            if result is not None:
+            if not isinstance(result, str):
                 return result
-            errors["base"] = ERROR_INVALID_AUTH
+            errors["base"] = result
             defaults = {
                 CONF_EMAIL: email,
                 CONF_REGION: user_input.get(CONF_REGION, REGION_AUTO),
@@ -184,9 +185,9 @@ class CatlinkConfigFlow(ConfigFlow, domain=DOMAIN):
                 region=user_input.get(CONF_REGION, REGION_AUTO),
                 title=f"+{phone_iac}{phone_number}",
             )
-            if result is not None:
+            if not isinstance(result, str):
                 return result
-            errors["base"] = ERROR_INVALID_AUTH
+            errors["base"] = result
             defaults = {
                 CONF_PHONE: phone_raw,
                 CONF_REGION: user_input.get(CONF_REGION, REGION_AUTO),
@@ -226,17 +227,17 @@ class CatlinkConfigFlow(ConfigFlow, domain=DOMAIN):
         credentials: dict[str, Any],
         region: str,
         title: str,
-    ) -> ConfigFlowResult | None:
+    ) -> ConfigFlowResult | str:
         """Validate credentials and advance the flow.
 
-        Returns None when the credentials were rejected, so the calling step
-        can re-show its own form with an error.
+        Returns an error key when the credentials were rejected or the devices
+        could not be listed, so the calling step can re-show its own form.
         """
         resolved = await discover_region(
             self.hass, credentials, None if region == REGION_AUTO else region
         )
         if resolved is None:
-            return None
+            return ERROR_INVALID_AUTH
 
         config = {
             CONF_API_BASE: API_SERVERS[resolved],
@@ -260,6 +261,8 @@ class CatlinkConfigFlow(ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         devices = await account.get_devices()
+        if devices is None:
+            return ERROR_CANNOT_CONNECT
         if not devices:
             return self.async_create_entry(
                 title=title,
@@ -339,7 +342,9 @@ class CatlinkOptionsFlowHandler(OptionsFlowWithReload):
             {**dict(self.config_entry.data), **dict(self.config_entry.options or {})},
         )
         await account.async_check_auth()
-        devices = await account.get_devices() or []
+        devices = await account.get_devices()
+        if devices is None:
+            return self.async_abort(reason=ERROR_CANNOT_CONNECT)
 
         device_options: dict[str, str] = {}
         supported_ids: list[str] = []

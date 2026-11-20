@@ -1,5 +1,6 @@
 """Tests for CatLink integration setup."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, patch
 
 from custom_components.catlink import async_setup
@@ -49,7 +50,7 @@ def mock_coordinator():
     with patch("custom_components.catlink.DevicesCoordinator") as mock:
         instance = mock.return_value
         instance.name = f"{DOMAIN}-86-13812345678-devices"
-        instance.async_refresh = AsyncMock()
+        instance.async_config_entry_first_refresh = AsyncMock()
         instance.data = {}
         yield mock
 
@@ -91,9 +92,24 @@ async def test_async_setup_entry(
     assert result is True
     assert mock_config_entry.state is ConfigEntryState.LOADED
     mock_account.return_value.async_check_auth.assert_called_once()
-    mock_coordinator.return_value.async_refresh.assert_called_once()
+    mock_coordinator.return_value.async_config_entry_first_refresh.assert_called_once()
     assert mock_account.return_value.uid in hass.data[DOMAIN][CONF_ACCOUNTS]
     assert mock_config_entry.entry_id in hass.data[DOMAIN]["entry_coordinators"]
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_setup_retries_when_devices_cannot_be_listed(
+    hass: HomeAssistant, mock_config_entry, mock_account
+) -> None:
+    """Test a failed device listing retries setup instead of loading empty."""
+    mock_account.return_value.hass = hass
+    mock_account.return_value.update_interval = timedelta(minutes=1)
+    mock_account.return_value.get_devices = AsyncMock(return_value=None)
+    await async_setup(hass, {})
+    mock_config_entry.add_to_hass(hass)
+
+    assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    assert mock_config_entry.state is ConfigEntryState.SETUP_RETRY
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")

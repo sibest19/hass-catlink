@@ -67,7 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = DevicesCoordinator(acc, entry.entry_id, device_ids=device_ids)
 
     await acc.async_check_auth()
-    await coordinator.async_refresh()
+    await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][CONF_ACCOUNTS][acc.uid] = acc
     hass.data[DOMAIN]["coordinators"][coordinator.name] = coordinator

@@ -483,6 +483,23 @@ class TestAccountGetDevices:
             assert devices == [{"id": "dev1", "deviceName": "Litter Box"}]
             mock_request.assert_called_once()
 
+    @pytest.mark.parametrize(
+        ("reply", "expected"),
+        [
+            ({"returnCode": 0, "data": {CONF_DEVICES: []}}, []),
+            ({"returnCode": 1000, "msg": "error"}, None),
+            ({}, None),
+        ],
+    )
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_get_devices_tells_empty_from_failed(
+        self, account, reply, expected
+    ) -> None:
+        """Test an empty account gives [] and a failed listing gives None."""
+        with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = reply
+            assert await account.get_devices() == expected
+
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_get_devices_login_when_no_token(
         self, hass, mock_http_session
@@ -500,7 +517,7 @@ class TestAccountGetDevices:
             mock_login.return_value = False
             devices = await acc.get_devices()
 
-            assert devices == []
+            assert devices is None
             mock_login.assert_called_once()
 
 

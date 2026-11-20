@@ -3,7 +3,7 @@
 import asyncio
 
 from homeassistant.const import CONF_DEVICES
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from ..const import _LOGGER, DOMAIN, SUPPORTED_DOMAINS
@@ -44,6 +44,8 @@ class DevicesCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict:
         """Update data via API."""
         dls = await self.account.get_devices()
+        if dls is None:
+            raise UpdateFailed("Could not list the CatLink devices")
         for dat in dls:
             did = dat.get("id")
             if not did:

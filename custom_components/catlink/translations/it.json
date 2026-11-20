@@ -53,6 +53,9 @@
     }
   },
   "options": {
+    "abort": {
+      "cannot_connect": "Impossibile connettersi ai server CatLink. Controlla la connessione a Internet e riprova."
+    },
     "step": {
       "init": {
         "description": "Aggiungi o rimuovi dispositivi e configura l'intervallo di aggiornamento. Le modifiche hanno effetto dopo il riavvio dell'integrazione.",
