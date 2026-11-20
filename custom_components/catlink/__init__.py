@@ -32,10 +32,23 @@ REMOVED_ENTITIES = {
 
 
 @callback
-def _async_remove_stale_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove registry entries of entities the integration no longer creates."""
+def _async_migrate_entities(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop entities no device creates any more; make weights follow the unit system."""
     registry = er.async_get(hass)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+        # Home Assistant keeps the unit an existing sensor was created with.
+        # Weights were created in the CatLink app's unit (often lb): let it
+        # recompute the suggested unit, unless the user picked one.
+        if (
+            entity.domain == "sensor"
+            and entity.original_device_class == "weight"
+            and "unit_of_measurement" not in (entity.options.get("sensor") or {})
+        ):
+            registry.async_update_entity_options(
+                entity.entity_id,
+                "sensor.private",
+                {"refresh_initial_entity_options": True},
+            )
         # unique_id is "<deviceType>_<mac>-<key>"
         key = entity.unique_id.rsplit("-", 1)[-1]
         pro_ultra_select = entity.domain == "select" and entity.unique_id.startswith(
@@ -73,7 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN]["coordinators"][coordinator.name] = coordinator
     hass.data[DOMAIN]["entry_coordinators"][entry.entry_id] = coordinator
 
-    _async_remove_stale_entities(hass, entry)
+    _async_migrate_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, SUPPORTED_DOMAINS)
 
     return True

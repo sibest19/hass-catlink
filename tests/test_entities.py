@@ -494,3 +494,49 @@ class TestEntityIdLeftToHomeAssistant:
         mock_device.coordinator = mock_coordinator
         entity = cls("state", mock_device, {})
         assert entity.entity_id is None
+
+
+async def test_existing_weight_sensor_switches_to_unit_system(
+    hass, mock_coordinator
+) -> None:
+    """Test an old lb sensor is shown in kg on a metric Home Assistant after setup."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.util.unit_system import METRIC_SYSTEM
+    from pytest_homeassistant_custom_component.common import MockEntityPlatform
+
+    from custom_components.catlink.devices.cat import CatDevice
+
+    hass.config.units = METRIC_SYSTEM
+    mock_coordinator.hass = hass
+    device = CatDevice(
+        {
+            "id": "cat-1",
+            "mac": "cat-1",
+            "deviceType": "CAT",
+            "deviceName": "Zulu",
+            "summary_simple": {
+                "weightsInfo": {"currentWeight": 15.0, "weightUnitTip": "lb"}
+            },
+        },
+        mock_coordinator,
+    )
+    registry = er.async_get(hass)
+    old = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "CAT_cat-1-weight",
+        original_device_class="weight",
+        unit_of_measurement="lb",
+    )
+    # What setup does for weights the user did not set a unit for.
+    registry.async_update_entity_options(
+        old.entity_id, "sensor.private", {"refresh_initial_entity_options": True}
+    )
+
+    entity = CatlinkSensorEntity("weight", device, device.hass_sensor["weight"])
+    platform = MockEntityPlatform(hass, domain="sensor", platform_name=DOMAIN)
+    await platform.async_add_entities([entity])
+
+    state = hass.states.get(old.entity_id)
+    assert state.attributes["unit_of_measurement"] == "kg"
+    assert float(state.state) == pytest.approx(6.8, abs=0.05)

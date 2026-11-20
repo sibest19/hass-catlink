@@ -48,6 +48,8 @@ class CatlinkEntity(CoordinatorEntity):
         self._attr_options = self._option.get("options")
         self._attr_native_value = None
         self._attr_native_unit_of_measurement = self._option.get("unit")
+        self._attr_suggested_unit_of_measurement = self._option.get("suggested_unit")
+        self._attr_suggested_display_precision = self._option.get("precision")
         self._attr_state_class = self._option.get("state_class")
         entity_picture = self._option.get("entity_picture")
         if callable(entity_picture):

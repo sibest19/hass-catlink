@@ -11,6 +11,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 
 from custom_components.catlink.const import DOMAIN
 from custom_components.catlink.devices.base import Device
+from custom_components.catlink.helpers import convert_mass, mass_options
 
 if TYPE_CHECKING:
     from custom_components.catlink.modules.devices_coordinator import DevicesCoordinator
@@ -24,13 +25,6 @@ GENDER_LABELS: dict[int, str] = {
     4: "neutered_female",
 }
 
-# The app's weightUnitTip values, which follow the account's unit setting.
-MASS_UNITS: dict[str, str] = {
-    "kg": UnitOfMass.KILOGRAMS,
-    "g": UnitOfMass.GRAMS,
-    "lb": UnitOfMass.POUNDS,
-    "oz": UnitOfMass.OUNCES,
-}
 
 
 class CatDevice(Device):
@@ -77,8 +71,11 @@ class CatDevice(Device):
 
     @property
     def weight(self) -> float | None:
-        """Return the measured weight shown on the app's weight card."""
-        return self._summary_section("weightsInfo").get("currentWeight")
+        """Return the measured weight shown on the app's weight card, in kg."""
+        info = self._summary_section("weightsInfo")
+        return convert_mass(
+            info.get("currentWeight"), info.get("weightUnitTip"), UnitOfMass.KILOGRAMS
+        )
 
     @property
     def age_years(self) -> int | None:
@@ -129,9 +126,6 @@ class CatDevice(Device):
         summary = self._summary()
         return summary.get(name) or {}
 
-    def _mass_unit(self, section: str) -> str | None:
-        return MASS_UNITS.get(self._summary_section(section).get("weightUnitTip"))
-
     @staticmethod
     def _count(value) -> int | None:
         return None if value is None else int(value)
@@ -170,8 +164,11 @@ class CatDevice(Device):
 
     @property
     def diet_intakes(self) -> float | None:
-        """Return the amount eaten today."""
-        return self._summary_section("eatInfo").get("eatTotalAmount")
+        """Return the amount eaten today, in g."""
+        info = self._summary_section("eatInfo")
+        return convert_mass(
+            info.get("eatTotalAmount"), info.get("weightUnitTip"), UnitOfMass.GRAMS
+        )
 
     def cat_attrs(self) -> dict:
         """Return the cat attributes."""
@@ -199,9 +196,7 @@ class CatDevice(Device):
             },
             "weight": {
                 "translation_key": None,
-                "class": SensorDeviceClass.WEIGHT,
-                "state_class": SensorStateClass.MEASUREMENT,
-                "unit": self._mass_unit("weightsInfo"),
+                **mass_options(self.coordinator.hass),
             },
             "age_years": {},
             "age_months": {},
@@ -228,11 +223,7 @@ class CatDevice(Device):
             "drink_times": {
                 "state_class": SensorStateClass.TOTAL_INCREASING,
             },
-            "diet_intakes": {
-                "state_class": SensorStateClass.MEASUREMENT,
-                "class": SensorDeviceClass.WEIGHT,
-                "unit": self._mass_unit("eatInfo"),
-            },
+            "diet_intakes": mass_options(self.coordinator.hass, small=True),
         }
 
     @property

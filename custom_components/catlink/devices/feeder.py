@@ -2,11 +2,9 @@
 
 from typing import TYPE_CHECKING
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import UnitOfMass
 
 from ..const import _LOGGER
-from ..helpers import format_api_error
+from ..helpers import format_api_error, mass_options
 from ..models.additional_cfg import AdditionalDeviceConfig
 from ..models.api.device import FeederDeviceInfo
 from ..models.api.parse import parse_response
@@ -154,9 +152,7 @@ class FeederDevice(LogsMixin, Device):
             },
             "weight": {
                 "translation_key": None,
-                "class": SensorDeviceClass.WEIGHT,
-                "unit": UnitOfMass.GRAMS,
-                "state_class": SensorStateClass.MEASUREMENT,
+                **mass_options(self.coordinator.hass, small=True),
             },
             "error": {
                 "state_attrs": self.error_attrs,

@@ -12,7 +12,12 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.catlink.const import _LOGGER
 from custom_components.catlink.devices.litter_device import LitterDevice
-from custom_components.catlink.helpers import as_int, format_api_error
+from custom_components.catlink.helpers import (
+    as_int,
+    convert_mass,
+    format_api_error,
+    mass_options,
+)
 from custom_components.catlink.models.additional_cfg import AdditionalDeviceConfig
 from custom_components.catlink.models.api.device import C08DeviceInfo
 from custom_components.catlink.models.api.parse import parse_response
@@ -241,11 +246,7 @@ class C08Device(LitterDevice):
             "last_log": {
                 "state_attrs": self.last_log_attrs,
             },
-            "litter_weight": {
-                "class": SensorDeviceClass.WEIGHT,
-                "unit": UnitOfMass.KILOGRAMS,
-                "state_class": SensorStateClass.MEASUREMENT,
-            },
+            "litter_weight": mass_options(self.coordinator.hass),
             "litter_remaining_days": {
                 "class": SensorDeviceClass.DURATION,
                 "unit": UnitOfTime.DAYS,
@@ -272,8 +273,12 @@ class C08Device(LitterDevice):
                 "state_class": SensorStateClass.TOTAL_INCREASING,
                 "translation_key": "visits_today",
             },
-            "stats_weight_avg": {},
-            "stats_duration_avg": {},
+            "stats_weight_avg": mass_options(self.coordinator.hass),
+            "stats_duration_avg": {
+                "class": SensorDeviceClass.DURATION,
+                "unit": UnitOfTime.SECONDS,
+                "state_class": SensorStateClass.MEASUREMENT,
+            },
             "notice_config_count": {
                 "entity_category": EntityCategory.DIAGNOSTIC,
                 "enabled_default": False,
@@ -410,12 +415,15 @@ class C08Device(LitterDevice):
 
     @property
     def stats_weight_avg(self) -> float | None:
-        """Return the average weight from stats."""
-        return self._device_stats.get("weightAvg") if self._device_stats else None
+        """Return the average weight from stats, in kg."""
+        stats = self._device_stats or {}
+        return convert_mass(
+            stats.get("weightAvg"), stats.get("weightUnitTip"), UnitOfMass.KILOGRAMS
+        )
 
     @property
     def stats_duration_avg(self) -> int | None:
-        """Return the average duration from stats."""
+        """Return the average visit duration from stats, in seconds."""
         return self._device_stats.get("durationAvg") if self._device_stats else None
 
     @property

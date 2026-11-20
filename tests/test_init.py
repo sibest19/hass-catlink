@@ -223,3 +223,44 @@ async def test_setup_removes_stale_entities(
     assert registry.async_get(moved.entity_id) is None
     assert registry.async_get(pro_ultra.entity_id) is None
     assert registry.async_get(kept.entity_id) is not None
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
+async def test_setup_lets_weights_follow_the_unit_system(
+    hass: HomeAssistant,
+    mock_config_entry,
+    mock_account,
+    mock_coordinator,
+) -> None:
+    """Test existing weight sensors get their unit recomputed, unless the user set one."""
+    from homeassistant.helpers import entity_registry as er
+
+    mock_config_entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    weight = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "CAT_cat-1-weight",
+        config_entry=mock_config_entry,
+        original_device_class="weight",
+        unit_of_measurement="lb",
+    )
+    chosen = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "C08_AABB-litter_weight",
+        config_entry=mock_config_entry,
+        original_device_class="weight",
+    )
+    registry.async_update_entity_options(
+        chosen.entity_id, "sensor", {"unit_of_measurement": "lb"}
+    )
+
+    await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get(weight.entity_id).options["sensor.private"] == {
+        "refresh_initial_entity_options": True
+    }
+    assert "sensor.private" not in registry.async_get(chosen.entity_id).options
+

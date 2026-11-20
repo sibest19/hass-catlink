@@ -5,9 +5,10 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
-from homeassistant.const import PERCENTAGE, UnitOfMass, UnitOfTemperature, UnitOfTime
+from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 
 from ..const import _LOGGER
+from ..helpers import mass_options
 from ..models.additional_cfg import AdditionalDeviceConfig
 from ..models.api.device import LitterDeviceInfo
 from ..models.api.parse import parse_response
@@ -91,11 +92,7 @@ class ScooperDevice(LitterDevice):
             "last_log": {
                 "state_attrs": self.last_log_attrs,
             },
-            "litter_weight": {
-                "class": SensorDeviceClass.WEIGHT,
-                "unit": UnitOfMass.KILOGRAMS,
-                "state_class": SensorStateClass.MEASUREMENT,
-            },
+            "litter_weight": mass_options(self.coordinator.hass),
             "litter_remaining_days": {
                 "class": SensorDeviceClass.DURATION,
                 "unit": UnitOfTime.DAYS,
