@@ -38,11 +38,10 @@ def create_device(
     """Create a device instance from API data."""
     typ = dat.get("deviceType")
     device_cls = DEVICE_TYPES.get(typ, Device)
-    _async_update_unsupported_issue(coordinator.hass, typ, dat.get("model"))
     return device_cls(dat, coordinator, additional_config)
 
 
-def _async_update_unsupported_issue(hass, typ: str | None, model: str | None) -> None:
+def async_update_unsupported_issue(hass, typ: str | None, model: str | None) -> None:
     """Ask for help with an unknown deviceType; drop the notice once it is supported."""
     issue_id = f"unsupported_device_{typ}"
     if typ in DEVICE_TYPES:

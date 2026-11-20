@@ -1,28 +1,18 @@
 """Tests for the unsupported-device repair issue."""
 
-from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
 from custom_components.catlink.const import DOMAIN
-from custom_components.catlink.devices.base import Device
-from custom_components.catlink.devices.registry import create_device
+from custom_components.catlink.devices.registry import async_update_unsupported_issue
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
 
-def _coordinator(hass: HomeAssistant) -> MagicMock:
-    coordinator = MagicMock()
-    coordinator.hass = hass
-    return coordinator
-
-
 async def test_unknown_type_creates_issue(hass: HomeAssistant) -> None:
     """An unknown deviceType raises a warning that links a pre-filled issue form."""
-    dat = {"id": "dev1", "model": "Feeder Pro", "deviceType": "FEEDER_PRO"}
-    device = create_device(dat, _coordinator(hass))
+    async_update_unsupported_issue(hass, "FEEDER_PRO", "Feeder Pro")
 
-    assert type(device) is Device
     issue = ir.async_get(hass).async_get_issue(DOMAIN, "unsupported_device_FEEDER_PRO")
     assert issue is not None
     assert issue.severity == ir.IssueSeverity.WARNING
@@ -51,7 +41,7 @@ async def test_supported_type_clears_stale_issue(hass: HomeAssistant) -> None:
         severity=ir.IssueSeverity.WARNING,
         translation_key="unsupported_device",
     )
-    create_device({"id": "f1", "deviceType": "FEEDER"}, _coordinator(hass))
+    async_update_unsupported_issue(hass, "FEEDER", None)
 
     assert (
         ir.async_get(hass).async_get_issue(DOMAIN, "unsupported_device_FEEDER") is None

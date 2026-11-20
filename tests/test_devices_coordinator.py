@@ -319,3 +319,24 @@ class TestDevicesCoordinatorUpdateHassEntities:
         await coordinator.update_hass_entities("sensor", mock_device)
 
         add_sensor.assert_not_called()
+
+
+async def test_unselected_unknown_device_still_asks_for_help(
+    hass, mock_account, coordinator_hass_data
+) -> None:
+    """Unknown types are not pre-selected, so the notice must not depend on it."""
+    from homeassistant.helpers import issue_registry as ir
+
+    mock_account.get_devices = AsyncMock(
+        return_value=[{"id": "x1", "deviceType": "FEEDER_PRO", "model": "Feeder Pro"}]
+    )
+    mock_account.get_cats = AsyncMock(return_value=[])
+    coordinator = DevicesCoordinator(
+        mock_account, config_entry_id="test-entry-123", device_ids=["other"]
+    )
+
+    await coordinator._async_update_data()
+
+    assert ir.async_get(hass).async_get_issue(
+        DOMAIN, "unsupported_device_FEEDER_PRO"
+    )

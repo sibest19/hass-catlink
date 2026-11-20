@@ -59,9 +59,9 @@ switch over without losing your entities. See [Migrating from hasscc/catlink](#m
 | Feeder | `FEEDER` | Matched to the app's code, not tested on hardware |
 | PurePro water fountain | `PUREPRO` | Matched to the app's code, not tested on hardware |
 
-Other device types show up as "Limited support" during setup. They get almost no entities. If you
-add one anyway, Home Assistant shows a repair notice under **Settings → System → Repairs** asking for help to add
-them.
+Other device types show up as "Limited support" during setup and get almost no entities. Whether
+you add them or not, Home Assistant shows a repair notice under **Settings → System → Repairs**
+asking for help to support them.
 
 ## Help add or test your device
 

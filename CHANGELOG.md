@@ -4,13 +4,6 @@ All notable changes to this project are listed here.
 
 ## Unreleased
 
-- **Download diagnostics** (Settings → Devices & services → CatLink → ⋮) now gives a redacted file
-  with what the CatLink API returns for each device, to attach to device support issues.
-- A repair notice appears for added devices whose type is not supported yet, with a link to a
-  pre-filled device support form.
-- New devices are released first as betas (GitHub pre-releases). See "Help add or test your
-  device" in the README to opt in.
-
 ## 3.0.0 - 2026-11-20
 
 First release from [sibest19/hass-catlink](https://github.com/sibest19/hass-catlink), the maintained
@@ -87,6 +80,19 @@ types were matched against the official app's code but are not tested on hardwar
   some escaping as crashes.
 - Password fields in the config flow were not masked.
 - The encrypted password was written to the log on a failed login.
+- Passwords longer than 16 characters were sent unencrypted, so the login failed.
+  ([hasscc/catlink#60](https://github.com/hasscc/catlink/issues/60))
+- The session token was written to the debug log. It is now redacted, and an unused private key
+  was removed from the code. ([hasscc/catlink#69](https://github.com/hasscc/catlink/pull/69))
+- The `catlink.request_api` action did not exist, although it was documented. It is now available,
+  and only reaches CatLink's own servers. ([hasscc/catlink#56](https://github.com/hasscc/catlink/issues/56))
+- If CatLink could not be reached when Home Assistant started, the integration came up without
+  devices and never polled again. It now retries setup, and setup and options show "cannot
+  connect" instead of an empty device list.
+- Every login attempt opened a network session that was never closed.
+- Warnings repeated every minute when the litter weight or the device log was empty, or the account
+  had no cats. ([hasscc/catlink#63](https://github.com/hasscc/catlink/issues/63),
+  [#73](https://github.com/hasscc/catlink/issues/73))
 - None of the config flow text was shown, because `translations/en.json` was missing.
 
 ### Changed
@@ -101,6 +107,8 @@ types were matched against the official app's code but are not tested on hardwar
   firmware version.
 - Cat weight and food units follow the unit set in the app.
 - Project metadata, documentation and issue links now point to sibest19/hass-catlink.
+- Devices are listed with the endpoint the current app uses, falling back to the old one.
+  ([hasscc/catlink#74](https://github.com/hasscc/catlink/pull/74))
 
 ### Added
 
@@ -110,6 +118,12 @@ types were matched against the official app's code but are not tested on hardwar
 - Italian translation of the setup and of all entity names and states.
 - Scooper C1 waste bin status now also reports Almost full.
 - A Docker Compose development stack with debug logging and a remote debugger.
+- **Download diagnostics** (Settings → Devices & services → CatLink → ⋮) gives a redacted file
+  with what the CatLink API returns for each device, to attach to device support issues.
+- A repair notice appears when the account has a device type that is not supported yet, with a
+  link to a pre-filled device support form.
+- New devices are released first as betas (GitHub pre-releases). See "Help add or test your
+  device" in the README to opt in.
 
 ### Removed
 

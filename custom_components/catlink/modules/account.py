@@ -12,6 +12,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
+from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_DEVICES, CONF_EMAIL, CONF_PASSWORD, CONF_TOKEN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
@@ -34,20 +35,6 @@ from ..const import (
     SIGN_KEY,
 )
 from ..helpers import Helper
-
-
-# shortcut: not homeassistant.components.diagnostics.async_redact_data, which
-# hassfest rejects until this integration has a diagnostics platform.
-def _redact_tokens(data):
-    """Return the API reply with every token value hidden, for logging."""
-    if isinstance(data, dict):
-        return {
-            k: "**REDACTED**" if k == CONF_TOKEN else _redact_tokens(v)
-            for k, v in data.items()
-        }
-    if isinstance(data, list):
-        return [_redact_tokens(v) for v in data]
-    return data
 
 
 class Account:
@@ -187,7 +174,7 @@ class Account:
                     "API response %s %s: %s",
                     method,
                     api,
-                    _redact_tokens(result),
+                    async_redact_data(result, {CONF_TOKEN}),
                 )
 
             # Handle token expiration (1002: Illegal token)

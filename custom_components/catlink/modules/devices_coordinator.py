@@ -7,7 +7,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from ..const import _LOGGER, DOMAIN, SUPPORTED_DOMAINS
-from ..devices.registry import create_device
+from ..devices.registry import async_update_unsupported_issue, create_device
 from ..entities.registry import DOMAIN_ENTITY_CLASSES
 from ..models.additional_cfg import AdditionalDeviceConfig
 from .account import Account
@@ -50,6 +50,11 @@ class DevicesCoordinator(DataUpdateCoordinator):
             did = dat.get("id")
             if not did:
                 continue
+            # Before the selection filter: unknown types are not pre-selected,
+            # and their owners are the ones we need to hear from.
+            async_update_unsupported_issue(
+                self.hass, dat.get("deviceType"), dat.get("model")
+            )
             # An empty selection means "not narrowed down" rather than "show
             # nothing". Setup writes an empty list when the account had no
             # devices yet — devices shared afterwards must still appear.
