@@ -114,6 +114,14 @@ async def test_add_entities_registered(
 
 
 @pytest.mark.usefixtures("enable_custom_integrations")
+async def test_request_api_action_registered(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Test the config entry setup registers the catlink.request_api action."""
+    assert hass.services.has_service(DOMAIN, "request_api")
+
+
+@pytest.mark.usefixtures("enable_custom_integrations")
 async def test_sensor_platform_setup_entry(
     hass: HomeAssistant,
 ) -> None:
@@ -130,7 +138,8 @@ async def test_sensor_platform_setup_entry(
     )
     mock_config_entry.add_to_hass(hass)
 
-    await sensor.async_setup_entry(hass, mock_config_entry, mock_add_entities)
+    with patch.object(sensor.entity_platform, "async_get_current_platform"):
+        await sensor.async_setup_entry(hass, mock_config_entry, mock_add_entities)
 
     assert mock_config_entry.entry_id in hass.data[DOMAIN]["add_entities"]
     assert "sensor" in hass.data[DOMAIN]["add_entities"][mock_config_entry.entry_id]
