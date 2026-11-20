@@ -1,6 +1,9 @@
 {
   "domain": "catlink",
   "name": "CatLink",
+  "categories": [
+    "pets"
+  ],
   "codeowners": [
     "@sibest19"
   ],
