@@ -535,6 +535,16 @@ class TestAccountGetCats:
             assert cats == []
             mock_login.assert_called_once()
 
+    @pytest.mark.usefixtures("enable_custom_integrations")
+    async def test_get_cats_no_warning_when_account_has_none(
+        self, account, caplog
+    ) -> None:
+        """Test an account without cats is not reported as a failure."""
+        with patch.object(account, "request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"returnCode": 0, "data": {"cats": []}}
+            assert await account.get_cats() == []
+        assert "WARNING" not in caplog.text
+
 
 class TestAccountGetCatSummarySimple:
     """Tests for Account get_cat_summary_simple."""

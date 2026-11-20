@@ -292,7 +292,9 @@ class Account:
         rsp = await self.request(api, params)
         cats = rsp.get("data", {}).get("cats") or []
         if not cats:
-            _LOGGER.warning("Got cats for %s failed: %s", self.identifier, rsp)
+            # A shared account may have no cats: not worth a warning every poll.
+            log = _LOGGER.debug if rsp.get("returnCode") == 0 else _LOGGER.warning
+            log("Got no cats for %s: %s", self.identifier, rsp)
         return cats
 
     async def get_cat_summary_simple(
