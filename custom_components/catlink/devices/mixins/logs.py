@@ -69,7 +69,10 @@ class LogsMixin:
         except (TypeError, ValueError) as exc:
             rdt = []
             _LOGGER.error("Got device logs for %s failed: %s", self.name, exc)
-        if not rdt:
+        if not rdt and rsp and rsp.get("returnCode") == 0:
+            # A successful reply with no events: normal, so do not warn every poll.
+            _LOGGER.debug("Got no device logs for %s: %s", self.name, rsp)
+        elif not rdt:
             _LOGGER.warning("Got device logs for %s failed: %s", self.name, rsp)
         self.logs = rdt
         self._handle_listeners()

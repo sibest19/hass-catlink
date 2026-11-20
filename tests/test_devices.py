@@ -962,6 +962,26 @@ class TestScooperProUltraDevice:
             == "token/litterbox/stats/log/timeline/v2"
         )
 
+    @pytest.mark.parametrize(
+        ("reply", "level"),
+        [
+            ({"returnCode": 0, "data": {"records": []}}, "DEBUG"),
+            ({"returnCode": 1, "msg": "error"}, "WARNING"),
+        ],
+    )
+    async def test_update_logs_empty_reply_log_level(
+        self, mock_coordinator, sample_pro_ultra_data, caplog, reply, level
+    ) -> None:
+        """Test an empty but successful reply logs at debug, a failure warns."""
+        caplog.set_level("DEBUG")
+        device = ScooperProUltraDevice(sample_pro_ultra_data, mock_coordinator)
+        device._handle_listeners = MagicMock()  # noqa: SLF001
+        mock_coordinator.account.request = AsyncMock(return_value=reply)
+
+        await device.update_logs()
+
+        assert [r.levelname for r in caplog.records if "logs" in r.message] == [level]
+
 
 class TestScooperDevice:
     """Tests for ScooperDevice."""

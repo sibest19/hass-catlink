@@ -131,6 +131,26 @@ class TestLogsMixinFetchLogs:
         assert result == []
         assert device.logs == []
 
+    @pytest.mark.parametrize(
+        ("reply", "level"),
+        [
+            ({"returnCode": 0, "data": {"scooperLogTop5": []}}, "DEBUG"),
+            ({"returnCode": 1, "msg": "error"}, "WARNING"),
+        ],
+    )
+    async def test_fetch_logs_empty_reply_log_level(
+        self, mock_coordinator, sample_device_data, caplog, reply, level
+    ) -> None:
+        """Test an empty but successful reply logs at debug, a failure warns."""
+        caplog.set_level("DEBUG")
+        device = LitterBox(sample_device_data, mock_coordinator)
+        device._handle_listeners = MagicMock()
+        mock_coordinator.account.request = AsyncMock(return_value=reply)
+
+        await device._fetch_logs("token/litterbox/log", "scooperLogTop5")
+
+        assert [r.levelname for r in caplog.records if "logs" in r.message] == [level]
+
     @pytest.mark.usefixtures("enable_custom_integrations")
     async def test_fetch_logs_api_error_sets_empty(
         self, mock_coordinator, sample_device_data
