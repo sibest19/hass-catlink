@@ -4,6 +4,8 @@ All notable changes to this project are listed here.
 
 ## Unreleased
 
+## 3.1.0 - 2026-11-20
+
 ### Changed
 
 - **Weights follow your Home Assistant unit system** (kg and g for metric, lb and oz for US
