@@ -184,20 +184,20 @@ class TestDevicesCoordinatorAsyncUpdateData:
         )
 
         mock_account.get_devices = AsyncMock(
-            return_value=[{"id": "5850318", "deviceType": "C08"}]
+            return_value=[{"id": "1234567", "deviceType": "C08"}]
         )
 
         with patch(
             "custom_components.catlink.modules.devices_coordinator.create_device"
         ) as mock_create:
             mock_device = MagicMock()
-            mock_device.id = "5850318"
+            mock_device.id = "1234567"
             mock_device.async_init = AsyncMock()
             mock_create.return_value = mock_device
 
             result = await coordinator._async_update_data()
 
-            assert "5850318" in result
+            assert "1234567" in result
             assert mock_create.call_count == 1
 
     @pytest.mark.usefixtures("enable_custom_integrations")

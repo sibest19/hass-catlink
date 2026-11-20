@@ -123,7 +123,7 @@ class TestCatlinkEntity:
         device = C08Device(
             {
                 "id": "1",
-                "mac": "2442E3414413",
+                "mac": "A1B2C3D4E5F6",
                 "deviceType": "C08",
                 "deviceName": "SCOOPER C08",
                 "model": "MODEL_00",
@@ -134,8 +134,8 @@ class TestCatlinkEntity:
         entity = CatlinkEntity("state", device)
 
         assert entity._attr_device_info == {
-            "identifiers": {("catlink", "C08_2442E3414413")},
-            "connections": {("mac", "24:42:e3:41:44:13")},
+            "identifiers": {("catlink", "C08_A1B2C3D4E5F6")},
+            "connections": {("mac", "a1:b2:c3:d4:e5:f6")},
             "name": "SCOOPER C08",
             "manufacturer": "CatLink",
             "model": "SCOOPER SE 2",
