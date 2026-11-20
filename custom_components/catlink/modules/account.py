@@ -57,7 +57,7 @@ class Account:
         """Initialize the account."""
         self._config = config
         self.hass = hass
-        self.http = aiohttp_client.async_create_clientsession(hass, auto_cleanup=False)
+        self.http = aiohttp_client.async_get_clientsession(hass)
 
     def get_config(self, key, default=None) -> str:
         """Return the config of the account."""

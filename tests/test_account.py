@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from homeassistant.const import CONF_DEVICES, CONF_EMAIL, CONF_PASSWORD, CONF_TOKEN
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from custom_components.catlink.const import (
     CONF_API_BASE,
@@ -38,7 +39,7 @@ def account_config():
 def mock_http_session():
     """Mock aiohttp client session."""
     with patch(
-        "custom_components.catlink.modules.account.aiohttp_client.async_create_clientsession"
+        "custom_components.catlink.modules.account.aiohttp_client.async_get_clientsession"
     ) as mock_create:
         session = MagicMock()
         mock_create.return_value = session
@@ -71,6 +72,10 @@ class TestAccountProperties:
         config = {CONF_PHONE_IAC: "86", CONF_PHONE: "13812345678", CONF_PASSWORD: "pwd"}
         acc = Account(hass, config)
         assert acc.token == ""
+
+    async def test_uses_shared_http_session(self, hass, account_config) -> None:
+        """Test accounts share Home Assistant's session instead of leaking one each."""
+        assert Account(hass, account_config).http is async_get_clientsession(hass)
 
 
 class TestAccountGetConfig:
