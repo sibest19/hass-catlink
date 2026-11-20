@@ -342,5 +342,11 @@
         "name": "Modalità silenziosa"
       }
     }
+  },
+  "issues": {
+    "unsupported_device": {
+      "title": "{model} non è ancora supportato",
+      "description": "Il dispositivo CatLink {model} (deviceType `{deviceType}`) non è ancora supportato, quindi ha pochissime entità.\n\nAiutaci ad aggiungerlo: scarica la diagnostica (Impostazioni → Dispositivi e servizi → CatLink → ⋮ → Scarica diagnostica), poi seleziona **Ulteriori informazioni** per aprire una segnalazione e allega il file."
+    }
   }
 }

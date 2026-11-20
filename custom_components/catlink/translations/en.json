@@ -342,5 +342,11 @@
         "name": "Quiet mode"
       }
     }
+  },
+  "issues": {
+    "unsupported_device": {
+      "title": "{model} is not supported yet",
+      "description": "CatLink device {model} (deviceType `{deviceType}`) is not supported yet, so it has almost no entities.\n\nHelp add it: download the diagnostics (Settings → Devices & services → CatLink → ⋮ → Download diagnostics), then select **Learn more** to open a device support issue and attach the file."
+    }
   }
 }
