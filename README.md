@@ -1,273 +1,338 @@
-<div align="center">
-  <h2>CATLINK v2 Integration for Home Assistant</h2>
-</div>
+# CatLink for Home Assistant
 
-<div align="center">
-  <img src="https://play-lh.googleusercontent.com/eHPhN_fUDhdxMK4JAvlzjB5Mh-H72crLn2U3Khk37lzolNg2CTDgZXkB5bjPiM3CDqM" alt="CatLINK Logo" width="100">
-  <span style="font-size: 50px; margin: 0 20px;">+</span>
-  <img src="https://upload.wikimedia.org/wikipedia/en/thumb/4/49/Home_Assistant_logo_%282023%29.svg/2048px-Home_Assistant_logo_%282023%29.svg.png" alt="Home Assistant Logo" width="100">
-</div>
+Monitor and control CatLink litter boxes, feeders, water fountains and cat profiles from Home Assistant.
 
-<div align="center">
-  <h3>Made easy, for 😸 lovers.</h3>
-</div>
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
+[![GitHub release](https://img.shields.io/github/v/release/sibest19/hass-catlink)](https://github.com/sibest19/hass-catlink/releases)
+[![License](https://img.shields.io/github/license/sibest19/hass-catlink)](LICENSE)
+[![hassfest](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/hassfest.yaml?branch=main&label=hassfest)](https://github.com/sibest19/hass-catlink/actions/workflows/hassfest.yaml)
+[![HACS validation](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/hacs.yaml?branch=main&label=HACS%20validation)](https://github.com/sibest19/hass-catlink/actions/workflows/hacs.yaml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/sibest19/hass-catlink/tests.yaml?branch=main&label=tests)](https://github.com/sibest19/hass-catlink/actions/workflows/tests.yaml)
 
-<br>
+> [!NOTE]
+> This is an **unofficial** integration. It is not made, supported or endorsed by CatLink.
+> It talks to the same cloud API as the CatLink app.
 
-<div align="right">
-  <span style="margin-right: 10px; font-size: 16px; font-style: italic">Spotted the issue?</span>
-  <a href="https://github.com/hasscc/catlink/issues/new?assignees=&labels=bug%2Ctriage&template=bug_report.md&title=%5BBug%5D%3A+" target="_blank" style="text-decoration: none;"><span style="background-color: #f44b42; border: none; color: white; padding: 10px 20px; text-align: center; text-decoration: none; display: inline-block; font-size: 16px; margin: 4px 2px; cursor: pointer; border-radius: 4px;">Report a Bug</span></a>
-</div>
+This project continues [hasscc/catlink](https://github.com/hasscc/catlink), which has had no
+activity since February 2026 (last release v2.1.1). It uses the same `catlink` domain, so you can
+switch over without losing your entities. See [Migrating from hasscc/catlink](#migrating-from-hassccatlink).
 
----
+## Contents
 
-### Table of Contents
-
-- [Features](#features)
+- [Device support](#device-support)
+- [Before you start: use a second CatLink account](#before-you-start-use-a-second-catlink-account)
 - [Installation](#installation)
-  - [Easy way](#easy-way)
-  - [Manually](#manually)
-- [Supported Devices and Operations](#supported-devices-and-operations)
-  - [Scooper SE](#supported-devices-and-operations)
-  - [Scooper PRO](#supported-devices-and-operations)
-  - [PurePro Fountain](#supported-devices-and-operations)
-- [How to Configure?](#how-to-configure)
-- [Services (Optional)](#services-optional)
-- [Changelog](#changelog)
-- [How to contribute?](#how-to-contribute)
-- [Disclaimer on Using Logos](#disclaimer-on-using-logos)
+- [Configuration](#configuration)
+- [Entities](#entities)
+- [Migrating from hasscc/catlink](#migrating-from-hassccatlink)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits)
+- [Development](#development)
+- [License](#license)
 
-The CatLINK custom integration provides seamless support for integrating your CatLINK Scooper and Litterbox devices into Home Assistant. This integration allows you to monitor, control, and automate your CatLINK devices directly from your Home Assistant setup, enhancing the convenience and care of your feline friends.
+## Device support
 
-#### Features:
+> [!WARNING]
+> **Only the SCOOPER SE 2 and cat profiles have been tested on real hardware.**
+>
+> - **SCOOPER SE 2** (called `C08` in the CatLink API) and **cat profiles**: the maintainer owns
+>   these. All readings were checked live against the official app. The controls (switches and
+>   selects) send exactly what the official app sends, but not every one of them was tried on the
+>   device.
+> - **All other devices**: the code was matched against the official app's code, but **nobody has
+>   tested it on real hardware yet**. It may show wrong values or not work at all.
+>
+> If you own one of the untested devices, please tell us how it works, good or bad, using the
+> [issue templates](https://github.com/sibest19/hass-catlink/issues/new/choose).
 
-- **Scooper/Litterbox Device Integration**: Effortlessly connect your CatLINK Scooper and Litterbox devices to Home Assistant, enabling centralized control and monitoring within your smart home environment.
+| Device | API `deviceType` | Status |
+| --- | --- | --- |
+| SCOOPER SE 2 | `C08` | Verified on hardware (controls: payloads match the app, not all tried) |
+| Cat profiles | — | Verified on hardware |
+| Scooper (SE / Pro) | `SCOOPER` | Matched to the app's code, not tested on hardware |
+| Scooper C1 | `LITTER_BOX_599` | Matched to the app's code, not tested on hardware |
+| Scooper Pro Ultra | `VISUAL_PRO_ULTRA` | Limited (read-only sensors), not tested on hardware |
+| Feeder | `FEEDER` | Matched to the app's code, not tested on hardware |
+| PurePro water fountain | `PUREPRO` | Matched to the app's code, not tested on hardware |
 
-- **Real-Time Status Monitoring**: Track essential metrics such as work status, alarm status, weight, litter weight, cleaning times, and more. All relevant data is available in real-time, ensuring you stay informed about your pet's litterbox usage.
+Other device types show up as "Limited support" during setup. They get almost no entities.
 
-- **Mode Selection**: Choose between different modes of operation (Auto, Manual, Time) to customize the behavior of your CatLINK devices according to your needs and preferences.
+## Before you start: use a second CatLink account
 
-- **Advanced Actions**: Perform specific actions such as initiating a clean cycle, pausing the device, or changing the litter bag directly from Home Assistant.
+> [!IMPORTANT]
+> CatLink allows **only one active login per account**. When Home Assistant logs in, your phone
+> app is logged out. When the app logs back in, Home Assistant's token stops working, and the
+> integration logs in again by itself. The two keep kicking each other out.
 
-- **Comprehensive Logging**: Access detailed event logs for all activities, including manual and auto-clean events, cat visits with associated cat details, and other device operations. This feature helps you keep track of your pets' habits and the device's performance.
+To avoid this:
 
-- **Customizable Alerts and Automations**: Set up notifications and automate tasks based on the state of your CatLINK devices. For example, receive alerts when the litterbox is full or automatically start a cleaning cycle during quiet times.
+1. Create a second CatLink account (a different email or phone number).
+2. In the CatLink app, signed in with your main account, share your devices and cats with the second account.
+3. Use the second account in Home Assistant. Keep using your main account on your phone.
 
-- **Entity Attributes**: The integration exposes various attributes related to your CatLINK devices, such as litter weight, total and manual clean times, alarm status, and more, allowing for detailed customization and automation.
+## Installation
 
----
+You need **Home Assistant 2026.3.0 or newer**.
 
-# Installation:
+### Option 1: Marketplace or HACS (recommended)
 
-### Easy way
-[![HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?category=integration&owner=hasscc&repository=catlink)
+From Home Assistant 2026.11, HACS is built in as the **Marketplace**. On older versions, install
+[HACS](https://hacs.xyz/) first.
 
-### Manually
+Click this button to open the repository in your Home Assistant:
 
-#### Method 1: Manually installation via Samba / SFTP
-> Download and copy `custom_components/catlink` folder to `custom_components` folder in your HomeAssistant config folder
+[![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=sibest19&repository=hass-catlink&category=integration)
 
-#### Method 2: Onkey shell via SSH / Terminal & SSH add-on
-```shell
-wget -O - https://get.hacs.vip | DOMAIN=catlink REPO_PATH=hasscc/catlink ARCHIVE_TAG=main bash -
-```
+It opens HACS before 2026.11 and the Marketplace from 2026.11. Until this integration is in the
+default catalog, Home Assistant offers to add it as a custom repository. Accept, then download it.
 
-#### Method 3: shell_command service
-1. Copy this code to file `configuration.yaml`
-    ```yaml
-    shell_command:
-      update_catlink: |-
-        wget -O - https://get.hacs.vip | DOMAIN=catlink REPO_PATH=hasscc/catlink ARCHIVE_TAG=main bash -
-    ```
-2. Restart HA core
-3. Call this [`service: shell_command.update_catlink`](https://my.home-assistant.io/redirect/developer_call_service/?service=shell_command.update_catlink) in Developer Tools
-2. Restart HA core again
+Or add it by hand:
 
-## Supported Devices and Operations
+1. Open the Marketplace (or HACS).
+2. Open the menu (three dots, top right) and choose **Custom repositories**.
+3. Enter `https://github.com/sibest19/hass-catlink` and pick the type **Integration**.
+4. Search for **CatLink** and download it.
+5. Restart Home Assistant.
 
-<div style="display: flex; justify-content: space-between; flex-wrap: nowrap; gap: 16px;">
+### Option 2: Manual
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3><a href="https://www.catlinkus.com/products/catlink-smart-litter-box-scooper-se">Scooper SE</a></h3>
-    <img src="https://www.catlinkus.com/cdn/shop/files/CATLINK-Lite-01_757acadb-ebb8-4469-88c6-3ca3dd820706_610x610_crop_center.jpg?v=1691003577" alt="Scooper SE" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Changing Operation Mode (Auto, Manual, Time)</li>
-      <li>Actions (Cleaning, Pause, Change Garbage Bag)</li>
-      <li>Wastebin Full flag</li>
-      <li>Litter weight measurement</li>
-      <li>Litter days left</li>
-      <li>Deodorant replacement countdown in days</li>
-      <li>(NEW) Reset litter and deodorant buttons</li>
-      <li>Occupacy flag</li>
-      <li>Cleaning count</li>
-      <li>Knob status</li>
-      <li>Garbage Tobe status</li>
-      <li>Online status</li>
-      <li>Logs & Errors</li>
-      <li>Entities: sensor, binary sensor, select, switch, button</li>
-    </ul>
-  </div>
+1. Download the [latest release](https://github.com/sibest19/hass-catlink/releases/latest).
+2. Copy the `custom_components/catlink` folder into the `custom_components` folder of your Home
+   Assistant config directory. The result is `<config>/custom_components/catlink/manifest.json`.
+3. Restart Home Assistant.
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3><a href="https://www.catlinkus.com/products/catlink-self-cleaning-cat-litter-box-pro">Scooper PRO</a></h3>
-    <img src="https://www.catlinkus.com/cdn/shop/files/1500-1500_610x610_crop_center.jpg?v=1691705114" alt="Scooper PRO" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Changing Operation Mode (Auto, Manual, Time, Empty)</li>
-      <li>Actions (Start, Pause)</li>
-      <li>Deodorant replacement countdown in days</li>
-      <li>Litter days left</li>
-      <li>Litter weight measurement</li>
-      <li>Reset litter and deodorant buttons</li>
-      <li>Occupacy flag</li>
-      <li>Cleaning count</li>
-      <li>Temperature (Celsius)</li>
-      <li>Humidity</li>
-      <li>Online status</li>
-      <li>Logs & Error</li>
-      <li>Entities: sensor, binary sensor, select, switch, button</li>
-    </ul>
-  </div>
+### Add the integration
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3><a href="https://www.catlinkus.com/products/catlink-ai-feeder-for-only-pet-young">Feeder Young</a></h3>
-    <img src="https://web.archive.org/web/20221230071208im_/https://cdn.shopify.com/s/files/1/0641/0056/5251/products/3_cd58df89-6457-45af-a5c7-6ceb01272c40_700x.jpg?v=1657250711" alt="Feeder Young" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Feed Button</li>
-      <li>Food tray weight</li>
-      <li>Online status</li>
-      <li>Logs & Error</li>
-      <li>Entities: sensor, binary sensor, button</li>
-    </ul>
-  </div>
+After the restart, click this button, or go to **Settings → Devices & services → Add integration**
+and search for **CatLink**:
 
-</div>
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=catlink)
 
-#### Additional supported devices
+## Configuration
 
-<div style="display: flex; justify-content: space-between; flex-wrap: nowrap; gap: 16px;">
+Setup is done in the UI. There is no YAML configuration.
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3>Open-X/C08</h3>
-    <img src="https://www.catlinkus.com/cdn/shop/files/OPENX9_610x610_crop_center.webp?v=1767769832" alt="Open-X/C08" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Operation Modes (Auto, Manual, Scheduled)</li>
-      <li>Actions (Clean, Pause, Cancel, Pave)</li>
-      <li>Litter data & Deodorant countdown</li>
-      <li>Quiet mode, Child lock, Light, Tone</li>
-      <li>Pet stats & Notice switches</li>
-      <li>Entities: sensor, binary sensor, select, switch, button</li>
-    </ul>
-  </div>
+1. **Sign-in method.** Choose **Email address** or **Phone number**, the same way you sign in to
+   the CatLink app.
+2. **Credentials.**
+   - Email: your email address and password.
+   - Phone: your phone number **with the country code**, for example `+447911123456`, and your
+     password. Without the country code the country is guessed, and the guess is usually wrong.
+   - **Server region** (optional): *Detect automatically* (default), *Global*, *China*,
+     *United States* or *Singapore*. Automatic tries each server until one accepts the login. If
+     you know your region, pick it: a wrong password then costs one failed attempt instead of four.
+3. **Devices.** The integration lists the devices on the account. Each is marked "Supported" or
+   "Limited support". Supported devices are pre-selected. You also set the **refresh interval**
+   (30 to 3600 seconds, default 60).
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3>PurePro Fountain</h3>
-    <img src="https://www.catlinkus.com/cdn/shop/files/imgi_6_1_800x800_0f2d3807-c768-4891-a375-f56c0c9af190_610x610_crop_center.webp?v=1767511590" alt="PurePro Fountain" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Operation Modes (Flowing, Eco, Smart)</li>
-      <li>Water Level & Filter Life</li>
-      <li>Water Temperature</li>
-      <li>UV Sterilization tracking (UV_active)</li>
-      <li>Heating, Light & Hair cleaning status</li>
-      <li>Drinking Logs & Log Book</li>
-      <li>Online status</li>
-      <li>Entities: sensor, binary sensor, select</li>
-    </ul>
-  </div>
+Cats on the account are always added, each as its own device.
 
-  <div style="text-align: center; width: 33.33%;">
-    <h3>Scooper Pro Ultra (limited)</h3>
-    <img src="https://www.catlinkus.com/cdn/shop/files/ULTRA3_832ba0c1-c1b6-4ec0-ba8a-6ec5122897dd_610x610_crop_center.webp?v=1768480746" alt="Scooper Pro Ultra" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Litter remaining days</li>
-      <li>Deodorant countdown</li>
-      <li>Total clean time</li>
-      <li>Logs</li>
-      <li>Entities: sensor</li>
-    </ul>
-  </div>
+You can change the device selection and refresh interval later: **Settings → Devices & services →
+CatLink → Configure**. The integration reloads when you save. Devices shared with the account after
+setup are picked up automatically, unless you have narrowed the selection down.
 
-</div>
+If the password changes, Home Assistant asks you to sign in again (re-authentication).
 
-#### Cats
+## Entities
 
-<div style="display: flex; justify-content: space-around;">
+Entity names below are the English names you see in Home Assistant. Home Assistant puts the
+device name in front, for example "Litter box Litter weight". Italian translations are included.
 
-  <div style="text-align: center; width: 45%;">
-    <h3>Smart collars (via the Cats integration)</h3>
-    <img src="https://play-lh.googleusercontent.com/eHPhN_fUDhdxMK4JAvlzjB5Mh-H72crLn2U3Khk37lzolNg2CTDgZXkB5bjPiM3CDqM" alt="CatLINK smart collar" width="150">
-    <h4>Operations</h4>
-    <ul style="text-align: left;">
-      <li>Activity and status sensors</li>
-      <li>Weight and body metrics sensors</li>
-      <li>Presence and last seen tracking</li>
-      <li>Entities: sensor, binary sensor</li>
-    </ul>
-  </div>
+Labels used in the tables:
 
-</div>
+- **Diagnostic** / **Config**: shown in the diagnostic or configuration section of the device page.
+- **Disabled**: created but disabled by default. Enable it on the entity's settings page if you need it.
 
+Values marked "today" reset every day, like the counters in the app. Cat values show the same
+numbers as the cat's page in the CatLink app.
 
-### How to Configure?
+### SCOOPER SE 2 (`C08`)
 
-> ! Recommend sharing devices to another account, because you can keep only one login session, which means that you'll have to re-login to CATLINK each time your HA instance pulls the data.
+| Type | Entities |
+| --- | --- |
+| Sensor | State (Idle, Cleaning, Leveling litter, Emptying, Paused, Cancelling), Error, Last event, Litter weight, Litter days left, Cleanings today, Manual cleanings, Deodorant days left, Litter box visits today, Average weight, Average duration |
+| Sensor (Diagnostic) | Wi-Fi signal; Wi-Fi network, Notifications, Tracked pets (Disabled) |
+| Binary sensor (Diagnostic) | Connectivity |
+| Select | Action (Clean: start / pause / cancel, Level litter: start / pause) |
+| Select (Config) | Mode (Auto, Manual, Scheduled), Litter type (Bentonite, Mixed), Safe time (1 to 30 minutes) |
+| Switch (Config) | Quiet mode, Auto burial, Continuous cleaning, Child lock, Indicator light, Keypad tone, Automatic pet weight update, Kitten mode |
+| Switch (Config) | Notify: cat visit, Notify: bin full, Notify: replace waste bag, Notify: clean litter box, Notify: replace deodorant, Notify: anti-pinch triggered, Notify: firmware update; Notify: low litter, Notify: low litter bin capacity (Disabled, the app has no setting for these) |
 
-Just use ConfigFlow. It first asks how you sign in to the CatLink app:
+### Scooper (`SCOOPER`)
 
-- **Email address** — enter the address and password you use in the app.
-- **Phone number** — enter it with the country code, eg. `+493034994004`. The
-  country code matters: without it the country is guessed and is usually wrong.
+| Type | Entities |
+| --- | --- |
+| Sensor | State (Idle, Running, Needs reset), Error, Last event, Litter weight, Litter days left, Total cleanings, Manual cleanings, Deodorant days left, Temperature, Humidity |
+| Binary sensor (Diagnostic) | Connectivity |
+| Select | Action (Start, Pause) |
+| Select (Config) | Mode (Auto, Manual, Scheduled, Empty) |
 
-Your Cats & Devices are then discovered automatically.
+### Scooper C1 (`LITTER_BOX_599`)
 
-The **Server region** field can normally stay on *Detect automatically*, which
-tries every CatLink server until one accepts your login. If you already know
-your region, selecting it makes a wrong password cost one failed login attempt
-instead of four.
+| Type | Entities |
+| --- | --- |
+| Sensor | State (Idle, Cleaning, Emptying, Resetting, Changing bag), Error, Last event, Waste bin status (Normal, Almost full, Full), Litter weight, Litter days left, Total cleanings, Manual cleanings, Deodorant days left |
+| Sensor (Diagnostic) | Knob position; Last sync (Disabled) |
+| Binary sensor (Diagnostic) | Connectivity |
+| Select | Action (Clean, Empty, Cancel), Waste bag (Change bag, Reset) |
+| Select (Config) | Mode (Auto, Manual, Scheduled), Bin full sensitivity (Level 1 to 4) |
+| Button (Config) | Reset litter, Reset deodorant |
 
-> Devices shared with the account *after* setup are picked up automatically. To
-> narrow down which devices are polled, use the integration's **Configure**
-> option.
+### Scooper Pro Ultra (`VISUAL_PRO_ULTRA`), limited
 
-## Services (Optional)
+Read-only. The app controls this model over a different channel that the integration does not use.
 
-#### Request API
+| Type | Entities |
+| --- | --- |
+| Sensor | Last event, Litter days left, Deodorant days left, Total cleanings |
+
+### Feeder (`FEEDER`)
+
+| Type | Entities |
+| --- | --- |
+| Sensor | State, Weight, Error, Last event |
+| Button | Feed |
+| Number | Portions (1 to 10, used by the Feed button) |
+
+### PurePro water fountain (`PUREPRO`)
+
+| Type | Entities |
+| --- | --- |
+| Sensor | State (Flowing, Eco, Smart), Last event, Water level, Filter days left, Temperature (heater temperature, only when a heater is attached) |
+| Binary sensor | Light |
+| Binary sensor (Diagnostic) | Connectivity |
+| Select | Mode (Flowing, Eco, Smart) |
+
+### Cats
+
+| Type | Entities |
+| --- | --- |
+| Sensor | Health status, Weight, Age (years), Age (months), Gender (Male, Female, Neutered male, Neutered female), Breed, Birthday, Avatar, Litter box visits today, Urinations today, Defecations today, Drinks today, Food eaten today |
+
+Weight units follow the unit set in the CatLink app.
+
+### Action: `catlink.request_api`
+
+An advanced action that calls a CatLink API path with your account and shows the reply as a
+notification. It is meant for debugging and for helping add new devices. Target any CatLink sensor.
 
 ```yaml
-service: catlink.request_api
+action: catlink.request_api
 target:
-  entity_id: sensor.scooper_xxxxxx_state # Any sensor entity in the account
+  entity_id: sensor.litter_box_state
 data:
-  api: /token/device/union/list/sorted
+  api: token/device/union/list/sorted
   params:
     key: val
 ```
 
-## Changelog
+## Migrating from hasscc/catlink
 
-See `CHANGELOG.md` for release notes.
+This integration uses the same `catlink` domain. Your config entry and entities carry over.
 
-### How to contribute?
+1. In HACS, remove the `hasscc/catlink` custom repository. Do **not** remove the CatLink
+   integration from **Settings → Devices & services**.
+2. Install this repository as described in [Installation](#installation). It replaces the files in
+   `custom_components/catlink`.
+3. Restart Home Assistant.
 
-Please visit [CONTRIBUTE](/CONTRIBUTE.md), and be aware of [this](/CODE_OF_CONDUCT.md).
+Existing entities keep their entity IDs. New entities get entity IDs generated by Home Assistant
+from the device and entity name.
 
----
+### Breaking changes
 
-### Disclaimer on Using Logos
+Check your automations, scripts, templates and dashboards for these:
 
-<p style="font-size: 12px; color: gray;">
-  <strong>Disclaimer on Using Logos:</strong> Please note that the logos used in this documentation, including the CatLINK and Home Assistant logos, are the property of their respective owners.
-  <br><br>
-  <em>Trademark Acknowledgment:</em> The CatLINK and Home Assistant logos are trademarks of their respective companies. This documentation uses these logos solely for informational and illustrative purposes. No endorsement by or affiliation with the trademark holders is implied.
-  <br><br>
-  <em>Usage Restrictions:</em> Ensure that you have the appropriate permissions or licenses to use these logos in your own materials. Unauthorized use of logos can result in trademark infringement or other legal issues.
-  <br><br>
-  <em>Modifications:</em> If you modify or resize the logos for use in your projects, ensure that the integrity of the logos is maintained and that they are not used in a misleading or inappropriate manner.
-  <br><br>
-  By using these logos in your documentation or materials, you acknowledge and agree to comply with all applicable trademark laws and the usage guidelines set by the respective trademark holders.
-</p>
+- **Removed entities** (Home Assistant removes them from the registry automatically):
+  - `occupied` sensor on litter boxes. It was a guess based on litter weight, not a CatLink value.
+  - `online` text sensor. It is replaced by a **Connectivity** binary sensor (on / off).
+  - Cat sensors `toilet_weight_avg`, `diet_times` and `sport_active_duration`. The app does not show them.
+  - PurePro binary sensors `uv_active`, `heating` and `hair_cleaning`.
+  - Scooper Pro Ultra **Mode** and **Action** selects. They never worked: the app controls this model another way.
+- **Enum states are now lowercase keys.** Home Assistant translates them in the UI, but
+  automations compare the raw value:
+
+  | Entity | Before | After |
+  | --- | --- | --- |
+  | Litter type | `Bentonite`, `Mixed` | `bentonite`, `mixed` |
+  | Safe time | `1 min` … `30 min` | `min_1` … `min_30` |
+  | Action (SCOOPER SE 2) | `Clean: start` | `clean_start` |
+  | Action (Scooper C1) | `Cleaning`, `Pause` | `cleaning`, `empty`, `cancel` (no pause, like the app) |
+  | Waste bag | `Change Bag`, `Reset` | `change_bag`, `reset` |
+  | Bin full sensitivity | `Level 1` … `Level 4` | `level_1` … `level_4` |
+  | Mode (PurePro) | `Flowing mode`, `Eco-mode`, `Smart mode` | `flowing`, `eco`, `smart` |
+  | Waste bin status | `Normal`, `Full` | `normal`, `almost_full`, `full` |
+  | Cat Gender | `Male`, `Neutered male` | `male`, `neutered_male` |
+
+  Values that were already lowercase (`auto`, `manual`, `idle`, `running`, `need_reset`, `start`,
+  `pause`, `time`, `empty`) are unchanged.
+- **The State sensor of the SCOOPER SE 2 and the Scooper C1 shows the app's run state** (for
+  example `cleaning`, `emptying`) instead of `running` / `need_reset`. See the
+  [entity tables](#entities) for the values.
+- **SCOOPER SE 2 "Total cleanings" is now "Cleanings today"** and "Visits" is now "Litter box
+  visits today", the counts the app shows. The entity IDs stay the same, but the values now reset
+  daily.
+- **Values now match the app**, so some numbers change meaning: PurePro "Water level" is the app's
+  text instead of a number, "Filter days left" is days instead of a percentage, and "Temperature"
+  is the heater temperature. Scooper and Scooper C1 "Total cleanings" now also count scheduled cleans. Cat
+  weight comes from the app's weight card. Countdown sensors show *unknown* instead of `0` when
+  the device does not report them.
+
+The full list is in the [changelog](CHANGELOG.md).
+
+## Troubleshooting
+
+### Enable debug logging
+
+Add this to `configuration.yaml` and restart:
+
+```yaml
+logger:
+  default: warning
+  logs:
+    custom_components.catlink: debug
+```
+
+Or, without a restart: **Settings → Devices & services → CatLink → Enable debug logging**. Reproduce
+the problem, then disable it again to download the log.
+
+Logs are in **Settings → System → Logs** (click **Show full logs**), or in `home-assistant.log` in
+your config directory.
+
+### Common problems
+
+| Problem | What to do |
+| --- | --- |
+| Login is rejected but the password is right | Your account is on another server. Pick the **Server region** by hand. For phone sign-in, make sure the number starts with `+` and the country code. |
+| The phone app keeps logging you out | Home Assistant and the app share one account. Use a [second account](#before-you-start-use-a-second-catlink-account). |
+| A device is missing | Open **Configure** on the integration and select the device. If it is not listed, check that it is shared with the account Home Assistant uses. |
+| A value is wrong or an entity is unavailable | Compare it with the official app, then report it (see below). |
+
+### Report a problem
+
+Open an issue using the [issue templates](https://github.com/sibest19/hass-catlink/issues/new/choose).
+Include your device model, Home Assistant version, integration version and the debug log.
+
+> [!CAUTION]
+> Before you post a log, remove your **email address, phone number, tokens and device IDs/MAC
+> addresses**.
+
+## Credits
+
+This integration builds on [hasscc/catlink](https://github.com/hasscc/catlink) and the work of its
+contributors, including Alone, Milos Ljubenovic (milosljubenovic), Fuz2er, toplut
+(pantan-cymk), Radosław Zagórski and kingkong1946. The C08 support was based on
+[pycatlink](https://github.com/eulemitkeule/pycatlink).
+
+CatLink and the CatLink logo are trademarks of their owner. Home Assistant is a trademark of the
+Open Home Foundation. They are used here only to describe what this integration works with. No
+affiliation or endorsement is implied.
+
+## Development
+
+Want to help, or add a device? See [CONTRIBUTING.md](CONTRIBUTING.md). Please follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+[Apache License 2.0](LICENSE).

@@ -1,68 +1,117 @@
 # Changelog
 
+All notable changes to this project are listed here.
+
 ## Unreleased
+
+## 3.0.0 - 2026-11-20
+
+First release from [sibest19/hass-catlink](https://github.com/sibest19/hass-catlink), the maintained
+continuation of [hasscc/catlink](https://github.com/hasscc/catlink). The domain is still `catlink`,
+so existing installs upgrade in place. See the README section "Migrating from hasscc/catlink".
+
+Only the SCOOPER SE 2 (`C08`) and cat profiles are verified on real hardware. The other device
+types were matched against the official app's code but are not tested on hardware.
 
 ### ⚠️ Breaking
 
-- **Entity states are now stable slugs instead of English labels.** Sensor and
-  select states used to be display text baked into the device classes; they are
-  now lowercase identifiers translated by Home Assistant at display time. The UI
-  reads the same or better, but **automations, scripts, template sensors and
-  dashboard conditions that compare against the old strings will stop matching**,
-  and history before the upgrade keeps the old values.
+- **Entity states are now lowercase keys instead of English labels.** Home Assistant translates
+  them in the UI, but **automations, scripts, templates and dashboard conditions that compare
+  against the old strings stop matching**. History before the upgrade keeps the old values.
 
   | Entity | Before | After |
   | --- | --- | --- |
   | `select.*_litter_type` | `Bentonite`, `Mixed` | `bentonite`, `mixed` |
   | `select.*_safe_time` | `1 min` … `30 min` | `min_1` … `min_30` |
-  | `select.*_action` (C08) | `Clean: start` | `clean_start` |
-  | `select.*_action` (litter box) | `Cleaning`, `Pause` | `cleaning`, `pause` |
+  | `select.*_action` (SCOOPER SE 2) | `Clean: start` | `clean_start` |
+  | `select.*_action` (Scooper C1) | `Cleaning`, `Pause` | `cleaning`, `empty`, `cancel` |
   | `select.*_garbage` | `Change Bag`, `Reset` | `change_bag`, `reset` |
   | `select.*_box_full_sensitivity` | `Level 1` … `Level 4` | `level_1` … `level_4` |
   | `select.*_mode` (PurePro) | `Flowing mode`, `Eco-mode`, `Smart mode` | `flowing`, `eco`, `smart` |
+  | `sensor.*_garbage_tobe_status` | `Normal`, `Full` | `normal`, `almost_full`, `full` |
   | `sensor.cat_*_gender_label` | `Male`, `Neutered male` | `male`, `neutered_male` |
 
-  Values that were already lowercase (`auto`, `manual`, `idle`, `running`,
-  `need_reset`, `start`, `pause`, `time`, `empty`) are unchanged.
-
-### Added
-- Sign-in by email address, alongside the existing phone number. The config flow
-  now starts by asking which one you use.
-- Optional server region selector on both sign-in forms. Leaving it on automatic
-  keeps the old behaviour of probing every region; choosing one turns a wrong
-  password into a single failed login instead of four.
-- Italian translation. Entity **names** and enum **states** are both translated
-  now (English and Italian), via `has_entity_name` + `translation_key`. Entity
-  names lose their hardcoded device-name prefix — Home Assistant composes
-  "<device> <entity>" itself — so `Caronte gender_label` becomes `Caronte Gender`
-  / `Caronte Sesso`. A test walks every device class and fails if any entity key
-  is missing a name or state translation.
-- `translations/en.json`, without which none of the config-flow text rendered —
-  custom integrations do not read `strings.json` at runtime.
-- Docker Compose development stack with debug logging and a remote debugger.
+  Values that were already lowercase (`auto`, `manual`, `idle`, `running`, `need_reset`, `start`,
+  `pause`, `time`, `empty`) are unchanged.
+- **The State sensor of the SCOOPER SE 2 and the Scooper C1 shows the app's run state.** Instead of
+  `idle` / `running` / `need_reset` it reports `idle`, `cleaning`, `leveling`, `emptying`, `paused`,
+  `cancelling` (SCOOPER SE 2) or `idle`, `cleaning`, `emptying`, `resetting`, `changing_bag`
+  (Scooper C1). The Scooper keeps `idle` / `running` / `need_reset`.
+- **Removed entities** (see Removed below). Home Assistant deletes them from the entity registry
+  on the first start.
+- **The `online` sensor is now a Connectivity binary sensor** (on / off instead of a text value).
+- **SCOOPER SE 2 "Total cleanings" is now "Cleanings today"** and "Visits" is now "Litter box
+  visits today", the counts the app shows. The entity IDs are unchanged, but the values reset every
+  day.
+- **The Scooper C1 Action select no longer offers Pause.** It now offers Clean, Empty and Cancel,
+  the same buttons as the app.
+- **Values now come from the same fields as the app**, so some change meaning:
+  - PurePro: Water level is the app's text, Filter days left is in days (was a percentage), and
+    Temperature is the heater temperature, shown only when a heater is attached.
+  - Scooper and Scooper C1: Total cleanings now also counts scheduled cleans.
+  - Cats: weight comes from the app's weight card, and the daily counters from the app's day cards.
+- **Entity names changed** to follow Home Assistant's naming. Home Assistant now puts the device
+  name in front itself, for example `Caronte Gender` instead of `Caronte gender_label`.
+- **Entity IDs are no longer set by the integration.** Existing entities keep their entity IDs.
+  New entities get IDs generated by Home Assistant from the device and entity name.
+- Home Assistant 2026.3.0 or newer is required.
 
 ### Fixed
-- Devices shared with the account after setup stayed invisible forever: an empty
-  device selection was read as "show nothing" rather than "not narrowed down".
-- Countdown sensors crashed on every refresh for devices that do not report
-  them. The API sends the key with a `null` value, so `dict.get(key, 0)` handed
-  back `None` and `int(None)` raised. Affected `deodorant_countdown`,
-  `litter_remaining_days`, `total_clean_time` and `last_sync`.
-  Countdowns now report **unknown** instead of a misleading `0`; counters still
-  default to `0`.
-- An account with no devices could be added twice, because the unique ID was
-  claimed after the entry was created rather than before.
-- Password fields in the config flow were plain text instead of masked.
-- The login failure log line included the encrypted password.
-- Entity IDs were built with the integration domain (`catlink.c08_4413_state`)
-  instead of the platform domain, which Home Assistant warns about once per
-  entity per refresh and stops accepting in 2027.5.0. Each entity class now
-  declares its own platform domain. The object-id half is unchanged, so existing
-  entity IDs keep working exactly as before. ([#61](https://github.com/hasscc/catlink/issues/61))
-- Scooper Pro Ultra (`VISUAL_PRO_ULTRA`) had a full device class but was missing
-  from `SUPPORTED_DEVICE_TYPES`, so it was labelled "Limited support", never
-  pre-selected in the config flow, and in practice never added.
-  ([#57](https://github.com/hasscc/catlink/issues/57))
+
+- Polling stopped after the CatLink token expired (error 1002) until Home Assistant was restarted.
+  The re-login retry crashed and reused the old request signature.
+- A login answered with error 1002 could retry forever.
+- Devices shared with the account after setup never appeared: an empty device selection was read
+  as "show nothing" instead of "not narrowed down".
+- Countdown sensors crashed on every refresh for devices that do not report them. They now show
+  *unknown* instead of a misleading `0`.
+- Reloading the integration, or using several accounts, could share or reuse stale devices between
+  config entries.
+- An account with no devices could be added twice.
+- Scooper Pro Ultra was listed as "Limited support", was not pre-selected during setup and in
+  practice was never added. ([hasscc/catlink#57](https://github.com/hasscc/catlink/issues/57))
+- Scooper Pro Ultra sensors went blank when the API sent an empty field.
+- Entity IDs were built with the integration domain, which Home Assistant warns about and will
+  reject from 2027.5. ([hasscc/catlink#61](https://github.com/hasscc/catlink/issues/61))
+- Cat gender codes for "female" and "neutered male" were swapped.
+- SCOOPER SE 2 quiet mode, child lock and keypad tone sent a different payload than the app.
+- Scooper C1 reset litter and reset deodorant buttons used a different endpoint than the app.
+- Booleans are sent as `true` / `false`, like the app. All network errors are caught instead of
+  some escaping as crashes.
+- Password fields in the config flow were not masked.
+- The encrypted password was written to the log on a failed login.
+- None of the config flow text was shown, because `translations/en.json` was missing.
+
+### Changed
+
+- Every value now comes from the same API endpoint and field as the official CatLink app (checked
+  against the Android app, version 4.4.2): run state, errors, actions, resets, modes, units, cat
+  health status, day cards, birthday and gender.
+- Entities follow Home Assistant's current rules: translated names and states, icons in
+  `icons.json`, proper device classes, units and state classes, enum sensors, and diagnostic and
+  configuration categories. Rarely needed extras are disabled by default.
+- The device page shows the product name (for example SCOOPER SE 2), model ID, MAC address and
+  firmware version.
+- Cat weight and food units follow the unit set in the app.
+- Project metadata, documentation and issue links now point to sibest19/hass-catlink.
+
+### Added
+
+- Sign-in by email address, next to phone number. Setup starts by asking which one you use.
+- Optional server region selector (automatic, Global, China, United States, Singapore). Picking
+  your region turns a wrong password into one failed login instead of four.
+- Italian translation of the setup and of all entity names and states.
+- Scooper C1 waste bin status now also reports Almost full.
+- A Docker Compose development stack with debug logging and a remote debugger.
+
+### Removed
+
+- `occupied` sensor. It was a guess based on litter weight changes, not a CatLink value.
+- `online` text sensor (replaced by the Connectivity binary sensor).
+- Cat sensors `toilet_weight_avg`, `diet_times` and `sport_active_duration`. The app does not show them.
+- PurePro binary sensors `uv_active`, `heating` and `hair_cleaning`.
+- Scooper Pro Ultra Mode and Action selects. The app controls this model over a different channel,
+  so they never worked. The Pro Ultra is now read-only.
 
 ## 2.1.1 - 2026-02-06
 
