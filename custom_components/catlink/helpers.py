@@ -2,7 +2,6 @@
 
 from datetime import timedelta
 import re
-from typing import TYPE_CHECKING
 
 import phonenumbers
 from phonenumbers import NumberParseException
@@ -15,28 +14,6 @@ from .const import (
     CONF_API_BASE,
     DOMAIN,
 )
-
-if TYPE_CHECKING:
-    from .modules.devices_coordinator import DevicesCoordinator
-
-
-async def async_setup_domain_platform(
-    hass: HomeAssistant,
-    domain: str,
-    async_add_entities,
-    extra_setup=None,
-) -> None:
-    """Set up a domain platform (sensor, switch, select, etc.) via discovery.
-
-    Used when loading via async_load_platform; for config entries use
-    async_setup_entry_for instead.
-    """
-    hass.data[DOMAIN]["add_entities"].setdefault("discovery", {})[domain] = (
-        async_add_entities
-    )
-    await Helper.async_setup_accounts(hass, domain)
-    if extra_setup is not None:
-        await extra_setup()
 
 
 def parse_phone_number(phone: str) -> tuple[str, str]:
@@ -150,17 +127,6 @@ class Helper:
                 seconds=int(update_interval[6:8]),
             )
         return timedelta(minutes=1)
-
-    @classmethod
-    async def async_setup_accounts(cls, hass: HomeAssistant, domain: str) -> None:
-        """Set up entities for all coordinators (discovery path only)."""
-        coordinators: list[DevicesCoordinator] = list(
-            hass.data[DOMAIN]["coordinators"].values()
-        )
-        for coordinator in coordinators:
-            if coordinator.data is not None:
-                for sta in coordinator.data.values():
-                    await coordinator.update_hass_entities(domain, sta)
 
     @staticmethod
     def async_setup_entry_for(domain: str):

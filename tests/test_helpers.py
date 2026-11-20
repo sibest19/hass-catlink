@@ -8,7 +8,6 @@ import pytest
 from custom_components.catlink.const import DOMAIN
 from custom_components.catlink.helpers import (
     Helper,
-    async_setup_domain_platform,
     as_int,
     discover_region,
     format_api_error,
@@ -197,52 +196,6 @@ class TestDiscoverRegion:
 
             assert await discover_region(hass, PHONE_CREDENTIALS) is None
             assert mock_account.async_login.await_count == 4
-
-
-class TestAsyncSetupDomainPlatform:
-    """Tests for async_setup_domain_platform."""
-
-    @pytest.mark.usefixtures("enable_custom_integrations")
-    async def test_async_setup_domain_platform_registers_add_entities(
-        self, hass
-    ) -> None:
-        """Test async_setup_domain_platform registers add_entities."""
-        hass.data[DOMAIN] = {
-            "add_entities": {},
-            "coordinators": {},
-        }
-        add_entities = MagicMock()
-
-        with patch(
-            "custom_components.catlink.helpers.Helper.async_setup_accounts",
-            new_callable=AsyncMock,
-        ) as mock_setup:
-            await async_setup_domain_platform(hass, "sensor", add_entities)
-
-            assert "discovery" in hass.data[DOMAIN]["add_entities"]
-            assert (
-                hass.data[DOMAIN]["add_entities"]["discovery"]["sensor"] == add_entities
-            )
-            mock_setup.assert_called_once_with(hass, "sensor")
-
-    @pytest.mark.usefixtures("enable_custom_integrations")
-    async def test_async_setup_domain_platform_calls_extra_setup(self, hass) -> None:
-        """Test async_setup_domain_platform calls extra_setup when provided."""
-        hass.data[DOMAIN] = {
-            "add_entities": {},
-            "coordinators": {},
-        }
-        extra_setup = AsyncMock()
-
-        with patch(
-            "custom_components.catlink.helpers.Helper.async_setup_accounts",
-            new_callable=AsyncMock,
-        ):
-            await async_setup_domain_platform(
-                hass, "sensor", MagicMock(), extra_setup=extra_setup
-            )
-
-            extra_setup.assert_called_once()
 
 
 class TestAsInt:
