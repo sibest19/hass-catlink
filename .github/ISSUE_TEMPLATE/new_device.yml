@@ -1,0 +1,61 @@
+name: Support for a new or untested device
+description: Ask for support for a CatLink device the integration does not handle, or has not been verified on.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Only the SCOOPER SE 2 (C08) has been verified on real hardware. Supporting another device needs to know what the CatLink API returns for it.
+
+        Enable debug logging by adding this to `configuration.yaml` and restarting Home Assistant:
+
+        ```yaml
+        logger:
+          logs:
+            custom_components.catlink: debug
+        ```
+
+  - type: input
+    id: model
+    attributes:
+      label: Device model
+      description: The name shown in the CatLink app.
+      placeholder: "Scooper Pro Ultra"
+    validations:
+      required: true
+
+  - type: input
+    id: device-type
+    attributes:
+      label: deviceType
+      description: The `deviceType` value for this device in the debug log.
+      placeholder: "VISUAL_PRO_ULTRA"
+    validations:
+      required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      placeholder: "3.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-behaviour
+    attributes:
+      label: What works and what does not
+      description: Which entities appear, which are missing or wrong, and what the CatLink app shows instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: raw-response
+    attributes:
+      label: Raw API response
+      description: |
+        The `API response ...` debug log lines for this device (its entry in the device list and its device info).
+        **Redact your email, phone number, tokens, device IDs, serial numbers and MAC addresses before posting.**
+      render: json
+    validations:
+      required: true

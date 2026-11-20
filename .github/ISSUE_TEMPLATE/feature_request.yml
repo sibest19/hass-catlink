@@ -1,0 +1,28 @@
+name: Feature request
+description: Suggest a new feature or an improvement for a supported device.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The problem or use case, not only the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: The entity, option or behaviour you have in mind. If the CatLink app already shows it, say where.
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: CatLink device type
+      description: The device this is about, if any.
+      placeholder: "SCOOPER SE 2 / C08"
+    validations:
+      required: false
