@@ -24,6 +24,8 @@ SECRETS = [
     "SN-0001",
     "dev-unknown",
     "dev-feeder",
+    "dev-unselected",
+    "AA:BB:CC:DD:EE:03",
     "HomeWifi",
     "iot-9",
     "https://img.example/a.png",
@@ -71,6 +73,18 @@ def entry(hass: HomeAssistant) -> MockConfigEntry:
     )
     feeder.detail = {"weight": 12, "deviceId": "dev-feeder"}
     coordinator.devices = {"dev-unknown": unknown, "dev-feeder": feeder}
+    # The account also has a device the user did not select.
+    coordinator.account.get_devices = AsyncMock(
+        return_value=[
+            unknown.data,
+            feeder.data,
+            {
+                "id": "dev-unselected",
+                "deviceType": "VISUAL_C07",
+                "mac": "AA:BB:CC:DD:EE:03",
+            },
+        ]
+    )
     hass.data[DOMAIN] = {"entry_coordinators": {entry.entry_id: coordinator}}
     return entry
 
@@ -83,13 +97,16 @@ async def test_entry_diagnostics(hass: HomeAssistant, entry: MockConfigEntry) ->
     assert diag["integration_version"]
     assert diag["entry"]["data"]["api_base"] == "https://app.catlinks.cn/api/"
     assert diag["entry"]["data"]["password"] == REDACTED
-    unknown, feeder = diag["devices"]
+    unknown, feeder, unselected = diag["devices"]
     assert unknown["deviceType"] == "FEEDER_PRO"
     assert unknown["supported"] is False
     assert unknown["raw_device_info"]["data"]["deviceInfo"]["foo"] == 1
     assert feeder["supported"] is True
     assert feeder["detail"]["weight"] == 12
     assert "raw_device_info" not in feeder
+    assert unselected["deviceType"] == "VISUAL_C07"
+    assert unselected["selected"] is False
+    assert unselected["raw_device_info"]["data"]["deviceInfo"]["foo"] == 1
 
     dump = json.dumps(diag)
     for secret in SECRETS:

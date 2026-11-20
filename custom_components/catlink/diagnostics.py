@@ -71,17 +71,34 @@ async def _async_diagnostics(
 ) -> dict[str, Any]:
     """Return the entry and its devices, only those matching identifiers if given."""
     coordinator = hass.data[DOMAIN]["entry_coordinators"].get(entry.entry_id)
-    devices = [
+    created = [
         dvc
         for dvc in (coordinator.devices.values() if coordinator else ())
         if identifiers is None or identifiers & dvc.device_info["identifiers"]
     ]
+    devices = [await _device_diagnostics(dvc) for dvc in created]
+    if identifiers is None and coordinator:
+        # Unsupported types are not pre-selected, yet they are the ones the
+        # repair notice asks about: list every device on the account.
+        added = {dvc.id for dvc in created}
+        for dat in await coordinator.account.get_devices() or []:
+            if dat.get("id") not in added:
+                devices.append(
+                    {
+                        "deviceType": dat.get("deviceType"),
+                        "selected": False,
+                        "data": dat,
+                        "raw_device_info": await coordinator.account.request(
+                            "token/device/info", {"deviceId": dat.get("id")}
+                        ),
+                    }
+                )
     integration = await async_get_integration(hass, DOMAIN)
     return async_redact_data(
         {
             "integration_version": str(integration.version),
             "entry": {"data": dict(entry.data), "options": dict(entry.options)},
-            "devices": [await _device_diagnostics(dvc) for dvc in devices],
+            "devices": devices,
         },
         TO_REDACT,
     )
